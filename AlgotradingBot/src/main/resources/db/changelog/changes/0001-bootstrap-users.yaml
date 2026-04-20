@@ -1,0 +1,703 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0001-create-users-table-if-missing
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: users
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: password_hash
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+        - addUniqueConstraint:
+            tableName: users
+            columnNames: username
+            constraintName: uk_users_username
+        - addUniqueConstraint:
+            tableName: users
+            columnNames: email
+            constraintName: uk_users_email
+
+  - changeSet:
+      id: 0002-seed-admin-user-postgresql
+      author: codex
+      dbms: postgresql
+      preConditions:
+        onFail: MARK_RAN
+        tableExists:
+          tableName: users
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE EXTENSION IF NOT EXISTS pgcrypto;
+              INSERT INTO users (username, password_hash, email, role, enabled, created_at, updated_at)
+              VALUES (
+                'admin',
+                crypt('dogbert', gen_salt('bf', 10)),
+                'admin@algotrading.local',
+                'ADMIN',
+                true,
+                NOW(),
+                NOW()
+              )
+              ON CONFLICT (username) DO UPDATE
+                SET password_hash = EXCLUDED.password_hash,
+                    email = EXCLUDED.email,
+                    role = EXCLUDED.role,
+                    enabled = EXCLUDED.enabled,
+                    updated_at = NOW();
+
+  - changeSet:
+      id: 0003-migrate-backtest-dataset-csv-to-bytea
+      author: codex
+      dbms: postgresql
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: backtest_datasets
+          - columnExists:
+              tableName: backtest_datasets
+              columnName: csv_data
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              DO $$
+              DECLARE
+                csv_data_type TEXT;
+              BEGIN
+                SELECT data_type
+                  INTO csv_data_type
+                  FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'backtest_datasets'
+                   AND column_name = 'csv_data';
+
+                IF csv_data_type = 'oid' THEN
+                  ALTER TABLE backtest_datasets ADD COLUMN IF NOT EXISTS csv_data_tmp BYTEA;
+                  UPDATE backtest_datasets
+                     SET csv_data_tmp = lo_get(csv_data)
+                   WHERE csv_data IS NOT NULL;
+                  ALTER TABLE backtest_datasets DROP COLUMN csv_data;
+                  ALTER TABLE backtest_datasets RENAME COLUMN csv_data_tmp TO csv_data;
+                END IF;
+              END $$;
+
+  - changeSet:
+      id: 0004-add-backtest-dataset-reproducibility-columns
+      author: codex
+      dbms: postgresql
+      preConditions:
+        onFail: MARK_RAN
+        tableExists:
+          tableName: backtest_datasets
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              ALTER TABLE backtest_datasets ADD COLUMN IF NOT EXISTS checksum_sha256 VARCHAR(64);
+              ALTER TABLE backtest_datasets ADD COLUMN IF NOT EXISTS schema_version VARCHAR(32);
+              CREATE EXTENSION IF NOT EXISTS pgcrypto;
+              UPDATE backtest_datasets
+                 SET checksum_sha256 = COALESCE(checksum_sha256, encode(digest(csv_data, 'sha256'), 'hex')),
+                     schema_version = COALESCE(schema_version, 'ohlcv-v1')
+               WHERE checksum_sha256 IS NULL
+                  OR schema_version IS NULL;
+              ALTER TABLE backtest_datasets ALTER COLUMN checksum_sha256 SET NOT NULL;
+              ALTER TABLE backtest_datasets ALTER COLUMN schema_version SET NOT NULL;
+
+  - changeSet:
+      id: 0005-create-operator-audit-events
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: operator_audit_events
+      changes:
+        - createTable:
+            tableName: operator_audit_events
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: actor
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: action
+                  type: VARCHAR(80)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: environment
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: target_type
+                  type: VARCHAR(80)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: target_id
+                  type: VARCHAR(120)
+              - column:
+                  name: outcome
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: details
+                  type: VARCHAR(2000)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - createIndex:
+            indexName: idx_operator_audit_created_at
+            tableName: operator_audit_events
+            columns:
+              - column:
+                  name: created_at
+        - createIndex:
+            indexName: idx_operator_audit_action
+            tableName: operator_audit_events
+            columns:
+              - column:
+                  name: action
+        - createIndex:
+            indexName: idx_operator_audit_environment
+            tableName: operator_audit_events
+            columns:
+              - column:
+                  name: environment
+
+  - changeSet:
+      id: 0006-create-backtest-analytics-series
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: backtest_equity_points
+      changes:
+        - createTable:
+            tableName: backtest_equity_points
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: backtest_result_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: point_timestamp
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: equity
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: drawdown_pct
+                  type: DECIMAL(10,4)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: backtest_equity_points
+            baseColumnNames: backtest_result_id
+            referencedTableName: backtest_results
+            referencedColumnNames: id
+            constraintName: fk_backtest_equity_result
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_backtest_equity_backtest
+            tableName: backtest_equity_points
+            columns:
+              - column:
+                  name: backtest_result_id
+        - createIndex:
+            indexName: idx_backtest_equity_timestamp
+            tableName: backtest_equity_points
+            columns:
+              - column:
+                  name: point_timestamp
+
+  - changeSet:
+      id: 0007-create-backtest-trade-series
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: backtest_trade_series
+      changes:
+        - createTable:
+            tableName: backtest_trade_series
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: backtest_result_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: symbol
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entry_time
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: exit_time
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entry_price
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: exit_price
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantity
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entry_value
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: exit_value
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: return_pct
+                  type: DECIMAL(10,4)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: backtest_trade_series
+            baseColumnNames: backtest_result_id
+            referencedTableName: backtest_results
+            referencedColumnNames: id
+            constraintName: fk_backtest_trade_series_result
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_backtest_trade_series_backtest
+            tableName: backtest_trade_series
+            columns:
+              - column:
+                  name: backtest_result_id
+        - createIndex:
+            indexName: idx_backtest_trade_series_entry_time
+            tableName: backtest_trade_series
+            columns:
+              - column:
+                  name: entry_time
+        - createIndex:
+            indexName: idx_backtest_trade_series_exit_time
+            tableName: backtest_trade_series
+            columns:
+              - column:
+                  name: exit_time
+
+  - changeSet:
+      id: 0008-add-backtest-dataset-lifecycle-columns
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        tableExists:
+          tableName: backtest_datasets
+      changes:
+        - addColumn:
+            tableName: backtest_datasets
+            columns:
+              - column:
+                  name: archived
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+              - column:
+                  name: archived_at
+                  type: TIMESTAMP
+              - column:
+                  name: archive_reason
+                  type: VARCHAR(255)
+        - addNotNullConstraint:
+            tableName: backtest_datasets
+            columnName: archived
+            columnDataType: BOOLEAN
+
+  - changeSet:
+      id: 0009-create-strategy-config-versions
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: strategy_config_versions
+      changes:
+        - createTable:
+            tableName: strategy_config_versions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: strategy_config_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version_number
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: change_reason
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: symbol
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timeframe
+                  type: VARCHAR(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: risk_per_trade
+                  type: DECIMAL(6,4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: min_position_size
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: max_position_size
+                  type: DECIMAL(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: paper_mode
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: changed_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: strategy_config_versions
+            baseColumnNames: strategy_config_id
+            referencedTableName: strategy_configs
+            referencedColumnNames: id
+            constraintName: fk_strategy_cfg_version_strategy
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: strategy_config_versions
+            columnNames: strategy_config_id, version_number
+            constraintName: uk_strategy_cfg_version_number
+        - createIndex:
+            indexName: idx_strategy_cfg_version_strategy
+            tableName: strategy_config_versions
+            columns:
+              - column:
+                  name: strategy_config_id
+        - createIndex:
+            indexName: idx_strategy_cfg_version_changed_at
+            tableName: strategy_config_versions
+            columns:
+              - column:
+                  name: changed_at
+
+  - changeSet:
+      id: 0010-create-market-data-import-jobs
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: market_data_import_jobs
+      changes:
+        - createTable:
+            tableName: market_data_import_jobs
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: provider_id
+                  type: VARCHAR(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: asset_type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dataset_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: symbols_csv
+                  type: VARCHAR(1000)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timeframe
+                  type: VARCHAR(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: start_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: end_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: adjusted
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: regular_session_only
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status_message
+                  type: VARCHAR(2000)
+              - column:
+                  name: next_retry_at
+                  type: TIMESTAMP
+              - column:
+                  name: current_symbol_index
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: current_chunk_start
+                  type: TIMESTAMP
+              - column:
+                  name: imported_row_count
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: staged_csv_data
+                  type: BLOB
+              - column:
+                  name: dataset_id
+                  type: BIGINT
+              - column:
+                  name: attempt_count
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: started_at
+                  type: TIMESTAMP
+              - column:
+                  name: completed_at
+                  type: TIMESTAMP
+        - createIndex:
+            indexName: idx_market_data_import_status
+            tableName: market_data_import_jobs
+            columns:
+              - column:
+                  name: status
+        - createIndex:
+            indexName: idx_market_data_import_next_retry
+            tableName: market_data_import_jobs
+            columns:
+              - column:
+                  name: next_retry_at
+        - createIndex:
+            indexName: idx_market_data_import_created_at
+            tableName: market_data_import_jobs
+            columns:
+              - column:
+                  name: created_at
+
+  - changeSet:
+      id: 0011-create-market-data-provider-credentials
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: market_data_provider_credentials
+      changes:
+        - createTable:
+            tableName: market_data_provider_credentials
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: provider_id
+                  type: VARCHAR(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encrypted_api_key
+                  type: VARCHAR(4000)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_iv
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_version
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: note
+                  type: VARCHAR(500)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: market_data_provider_credentials
+            columnNames: provider_id
+            constraintName: uk_market_data_provider_credential_provider
+        - createIndex:
+            indexName: idx_market_data_provider_credential_provider
+            tableName: market_data_provider_credentials
+            columns:
+              - column:
+                  name: provider_id

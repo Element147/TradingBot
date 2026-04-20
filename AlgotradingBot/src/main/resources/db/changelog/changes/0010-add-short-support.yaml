@@ -1,0 +1,125 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0010-add-short-flag-to-strategy-configs
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: strategy_configs
+          - not:
+              columnExists:
+                tableName: strategy_configs
+                columnName: short_selling_enabled
+      changes:
+        - addColumn:
+            tableName: strategy_configs
+            columns:
+              - column:
+                  name: short_selling_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+        - addNotNullConstraint:
+            tableName: strategy_configs
+            columnName: short_selling_enabled
+            columnDataType: BOOLEAN
+
+  - changeSet:
+      id: 0011-add-short-flag-to-strategy-config-versions
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: strategy_config_versions
+          - not:
+              columnExists:
+                tableName: strategy_config_versions
+                columnName: short_selling_enabled
+      changes:
+        - addColumn:
+            tableName: strategy_config_versions
+            columns:
+              - column:
+                  name: short_selling_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+        - addNotNullConstraint:
+            tableName: strategy_config_versions
+            columnName: short_selling_enabled
+            columnDataType: BOOLEAN
+
+  - changeSet:
+      id: 0012-add-position-side-to-trades
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: trades
+          - not:
+              columnExists:
+                tableName: trades
+                columnName: position_side
+      changes:
+        - addColumn:
+            tableName: trades
+            columns:
+              - column:
+                  name: position_side
+                  type: VARCHAR(10)
+                  defaultValue: LONG
+        - addNotNullConstraint:
+            tableName: trades
+            columnName: position_side
+            columnDataType: VARCHAR(10)
+
+  - changeSet:
+      id: 0013-add-position-side-to-portfolio
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: portfolio
+          - not:
+              columnExists:
+                tableName: portfolio
+                columnName: position_side
+      changes:
+        - addColumn:
+            tableName: portfolio
+            columns:
+              - column:
+                  name: position_side
+                  type: VARCHAR(10)
+                  defaultValue: LONG
+        - addNotNullConstraint:
+            tableName: portfolio
+            columnName: position_side
+            columnDataType: VARCHAR(10)
+
+  - changeSet:
+      id: 0014-add-position-side-to-backtest-trade-series
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: backtest_trade_series
+          - not:
+              columnExists:
+                tableName: backtest_trade_series
+                columnName: position_side
+      changes:
+        - addColumn:
+            tableName: backtest_trade_series
+            columns:
+              - column:
+                  name: position_side
+                  type: VARCHAR(10)
+                  defaultValue: LONG
+        - addNotNullConstraint:
+            tableName: backtest_trade_series
+            columnName: position_side
+            columnDataType: VARCHAR(10)

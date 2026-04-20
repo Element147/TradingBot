@@ -1,0 +1,27 @@
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 2400;
+  padding: 10px 16px;
+  background: rgba(18, 107, 103, 0.98);
+  color: #f8fafc;
+  border: 1px solid rgba(7, 17, 22, 0.12);
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition:
+    top 120ms ease,
+    transform 120ms ease;
+}
+
+.skip-link:focus {
+  top: 16px;
+  transform: translateY(0);
+}

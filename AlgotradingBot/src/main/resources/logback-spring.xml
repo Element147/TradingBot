@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Property definitions -->
+    <property name="LOG_FILE" value="${APP_LOG_FILE:-.runtime/logs/algotrading-bot.log}"/>
+    <property name="LOG_PATH" value="${APP_LOG_PATH:-.runtime/logs}"/>
+    
+    <!-- Console Appender with readable pattern format -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- File Appender with JSON format and rotation -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>symbol</includeMdcKeyName>
+            <includeMdcKeyName>tradeId</includeMdcKeyName>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/algotrading-bot-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+    
+    <!-- Trade Execution Appender - Dedicated log for trade operations -->
+    <appender name="TRADE_EXECUTION" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/trade-execution.log</file>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>tradeId</includeMdcKeyName>
+            <includeMdcKeyName>symbol</includeMdcKeyName>
+            <includeMdcKeyName>entryPrice</includeMdcKeyName>
+            <includeMdcKeyName>exitPrice</includeMdcKeyName>
+            <includeMdcKeyName>positionSize</includeMdcKeyName>
+            <includeMdcKeyName>pnl</includeMdcKeyName>
+            <includeMdcKeyName>riskAmount</includeMdcKeyName>
+            <includeMdcKeyName>stopLoss</includeMdcKeyName>
+            <includeMdcKeyName>takeProfit</includeMdcKeyName>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/trade-execution-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+    
+    <!-- Risk Management Appender - Dedicated log for risk events -->
+    <appender name="RISK_MANAGEMENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/risk-management.log</file>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>accountId</includeMdcKeyName>
+            <includeMdcKeyName>currentBalance</includeMdcKeyName>
+            <includeMdcKeyName>drawdown</includeMdcKeyName>
+            <includeMdcKeyName>riskPerTrade</includeMdcKeyName>
+            <includeMdcKeyName>circuitBreakerStatus</includeMdcKeyName>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/risk-management-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+    
+    <!-- Spring Profile: Development -->
+    <springProfile name="dev">
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+        
+        <logger name="com.algotrader.bot" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </logger>
+        
+        <logger name="com.algotrader.bot.risk" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="RISK_MANAGEMENT"/>
+        </logger>
+        
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.hibernate.SQL" level="WARN"/>
+        <logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="WARN"/>
+    </springProfile>
+    
+    <!-- Spring Profile: Production -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+        
+        <logger name="com.algotrader.bot" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </logger>
+        
+        <logger name="com.algotrader.bot.entity.Trade" level="INFO" additivity="false">
+            <appender-ref ref="TRADE_EXECUTION"/>
+        </logger>
+        
+        <logger name="com.algotrader.bot.risk" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="RISK_MANAGEMENT"/>
+        </logger>
+        
+        <logger name="org.springframework.web" level="WARN"/>
+        <logger name="org.hibernate.SQL" level="WARN"/>
+        <logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="WARN"/>
+    </springProfile>
+    
+    <!-- Default Profile (no profile specified) -->
+    <springProfile name="default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+        
+        <logger name="com.algotrader.bot" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </logger>
+        
+        <logger name="com.algotrader.bot.entity.Trade" level="INFO" additivity="false">
+            <appender-ref ref="TRADE_EXECUTION"/>
+        </logger>
+        
+        <logger name="com.algotrader.bot.risk" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="RISK_MANAGEMENT"/>
+        </logger>
+
+        <logger name="org.hibernate.SQL" level="WARN"/>
+        <logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="WARN"/>
+    </springProfile>
+    
+</configuration>

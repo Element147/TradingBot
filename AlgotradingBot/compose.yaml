@@ -1,0 +1,54 @@
+name: algotradingbot
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: algotrading-postgres
+    environment:
+      POSTGRES_DB: algotrading
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    stop_grace_period: 10s
+    networks:
+      - algotrading-network
+
+  algotrading-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: algotrading-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/algotrading
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET or run the repo PowerShell helpers that provision a local dev secret automatically}
+      ALGOTRADING_RELAXED_AUTH: ${ALGOTRADING_RELAXED_AUTH:-false}
+      JAVA_OPTS: -Xms512m -Xmx2g -XX:+UseZGC -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
+      JAVA_DEBUG_OPTS: ${JAVA_DEBUG_OPTS:-}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - algotrading-network
+
+networks:
+  algotrading-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

@@ -1,0 +1,46 @@
+package com.algotrader.bot.controller;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record BacktestSummaryResponse(
+    Long id,
+    String strategyId,
+    Long datasetId,
+    String datasetName,
+    String experimentName,
+    String experimentKey,
+    String datasetChecksumSha256,
+    String datasetSchemaVersion,
+    LocalDateTime datasetUploadedAt,
+    Boolean datasetArchived,
+    String symbol,
+    String timeframe,
+    String executionStatus,
+    String validationStatus,
+    BigDecimal initialBalance,
+    BigDecimal finalBalance,
+    BigDecimal sharpeRatio,
+    BigDecimal profitFactor,
+    BigDecimal winRate,
+    BigDecimal maxDrawdown,
+    Integer totalTrades,
+    Integer feesBps,
+    Integer slippageBps,
+    LocalDateTime startDate,
+    LocalDateTime endDate,
+    LocalDateTime timestamp,
+    String executionStage,
+    Integer progressPercent,
+    Integer processedCandles,
+    Integer totalCandles,
+    LocalDateTime currentDataTimestamp,
+    String statusMessage,
+    LocalDateTime lastProgressAt,
+    LocalDateTime startedAt,
+    LocalDateTime completedAt,
+    String errorMessage,
+    List<BacktestStrategyMetricResponse> strategyMetrics,
+    AsyncTaskMonitorResponse asyncMonitor
+) {}

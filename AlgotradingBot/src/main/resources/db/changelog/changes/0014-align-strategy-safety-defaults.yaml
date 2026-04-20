@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0014-align-strategy-config-short-default
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: strategy_configs
+          - columnExists:
+              tableName: strategy_configs
+              columnName: short_selling_enabled
+      changes:
+        - dropDefaultValue:
+            tableName: strategy_configs
+            columnName: short_selling_enabled
+            columnDataType: BOOLEAN
+        - addDefaultValue:
+            tableName: strategy_configs
+            columnName: short_selling_enabled
+            defaultValueBoolean: false
+
+  - changeSet:
+      id: 0015-align-strategy-config-version-short-default
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: strategy_config_versions
+          - columnExists:
+              tableName: strategy_config_versions
+              columnName: short_selling_enabled
+      changes:
+        - dropDefaultValue:
+            tableName: strategy_config_versions
+            columnName: short_selling_enabled
+            columnDataType: BOOLEAN
+        - addDefaultValue:
+            tableName: strategy_config_versions
+            columnName: short_selling_enabled
+            defaultValueBoolean: false

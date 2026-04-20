@@ -1,0 +1,436 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0017-create-market-data-series
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: market_data_series
+      changes:
+        - createTable:
+            tableName: market_data_series
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_market_data_series
+                    nullable: false
+              - column:
+                  name: provider_id
+                  type: varchar(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: broker_id
+                  type: varchar(60)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+              - column:
+                  name: exchange_id
+                  type: varchar(60)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+              - column:
+                  name: venue_type
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: asset_class
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: instrument_type
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: symbol_normalized
+                  type: varchar(80)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: symbol_display
+                  type: varchar(80)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: base_asset
+                  type: varchar(30)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quote_asset
+                  type: varchar(30)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+              - column:
+                  name: currency_code
+                  type: varchar(12)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+              - column:
+                  name: country_code
+                  type: varchar(8)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timezone_name
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: session_template
+                  type: varchar(40)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+              - column:
+                  name: provider_metadata_json
+                  type: clob
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: market_data_series
+            columnNames: provider_id, broker_id, exchange_id, asset_class, instrument_type, symbol_normalized, base_asset, quote_asset, currency_code
+            constraintName: uk_market_data_series_identity
+        - createIndex:
+            indexName: idx_market_series_provider_exchange_symbol
+            tableName: market_data_series
+            columns:
+              - column:
+                  name: provider_id
+              - column:
+                  name: exchange_id
+              - column:
+                  name: symbol_normalized
+        - createIndex:
+            indexName: idx_market_series_asset_pair
+            tableName: market_data_series
+            columns:
+              - column:
+                  name: asset_class
+              - column:
+                  name: base_asset
+              - column:
+                  name: quote_asset
+
+  - changeSet:
+      id: 0017-create-market-data-candle-segments
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: market_data_candle_segments
+      changes:
+        - createTable:
+            tableName: market_data_candle_segments
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_market_data_candle_segments
+                    nullable: false
+              - column:
+                  name: dataset_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: import_job_id
+                  type: bigint
+              - column:
+                  name: series_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timeframe
+                  type: varchar(10)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: source_type
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: coverage_start
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: coverage_end
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: row_count
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: checksum_sha256
+                  type: char(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: schema_version
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: resolution_tier
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: source_priority
+                  type: smallint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: segment_status
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: supersedes_segment_id
+                  type: bigint
+              - column:
+                  name: duplicate_of_segment_id
+                  type: bigint
+              - column:
+                  name: storage_encoding
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: lineage_json
+                  type: clob
+              - column:
+                  name: compressed_artifact_uri
+                  type: varchar(255)
+              - column:
+                  name: archived
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: archived_at
+                  type: timestamp
+              - column:
+                  name: archive_reason
+                  type: varchar(255)
+              - column:
+                  name: provider_batch_reference
+                  type: varchar(120)
+              - column:
+                  name: notes
+                  type: varchar(500)
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: market_data_candle_segments
+            baseColumnNames: dataset_id
+            constraintName: fk_market_segments_dataset
+            referencedTableName: backtest_datasets
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: market_data_candle_segments
+            baseColumnNames: import_job_id
+            constraintName: fk_market_segments_import_job
+            referencedTableName: market_data_import_jobs
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: market_data_candle_segments
+            baseColumnNames: series_id
+            constraintName: fk_market_segments_series
+            referencedTableName: market_data_series
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: market_data_candle_segments
+            baseColumnNames: supersedes_segment_id
+            constraintName: fk_market_segments_supersedes
+            referencedTableName: market_data_candle_segments
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: market_data_candle_segments
+            baseColumnNames: duplicate_of_segment_id
+            constraintName: fk_market_segments_duplicate_of
+            referencedTableName: market_data_candle_segments
+            referencedColumnNames: id
+        - createIndex:
+            indexName: idx_market_segments_coverage
+            tableName: market_data_candle_segments
+            columns:
+              - column:
+                  name: series_id
+              - column:
+                  name: timeframe
+              - column:
+                  name: coverage_start
+              - column:
+                  name: coverage_end
+        - createIndex:
+            indexName: idx_market_segments_resolution
+            tableName: market_data_candle_segments
+            columns:
+              - column:
+                  name: series_id
+              - column:
+                  name: timeframe
+              - column:
+                  name: resolution_tier
+              - column:
+                  name: source_priority
+              - column:
+                  name: coverage_start
+        - createIndex:
+            indexName: idx_market_segments_dataset
+            tableName: market_data_candle_segments
+            columns:
+              - column:
+                  name: dataset_id
+        - createIndex:
+            indexName: idx_market_segments_import_job
+            tableName: market_data_candle_segments
+            columns:
+              - column:
+                  name: import_job_id
+        - createIndex:
+            indexName: idx_market_segments_status_archived
+            tableName: market_data_candle_segments
+            columns:
+              - column:
+                  name: segment_status
+              - column:
+                  name: archived
+
+  - changeSet:
+      id: 0017-create-market-data-candles
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: market_data_candles
+      changes:
+        - createTable:
+            tableName: market_data_candles
+            columns:
+              - column:
+                  name: series_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_market_data_candles
+              - column:
+                  name: timeframe
+                  type: varchar(10)
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_market_data_candles
+              - column:
+                  name: bucket_start
+                  type: timestamp
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_market_data_candles
+              - column:
+                  name: segment_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: open_price
+                  type: numeric(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: high_price
+                  type: numeric(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: low_price
+                  type: numeric(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: close_price
+                  type: numeric(20,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: volume
+                  type: numeric(28,8)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: trade_count
+                  type: bigint
+              - column:
+                  name: vwap
+                  type: numeric(20,8)
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: market_data_candles
+            baseColumnNames: series_id
+            constraintName: fk_market_candles_series
+            referencedTableName: market_data_series
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: market_data_candles
+            baseColumnNames: segment_id
+            constraintName: fk_market_candles_segment
+            referencedTableName: market_data_candle_segments
+            referencedColumnNames: id
+        - createIndex:
+            indexName: idx_market_candles_timeframe_bucket
+            tableName: market_data_candles
+            columns:
+              - column:
+                  name: timeframe
+              - column:
+                  name: bucket_start
+        - createIndex:
+            indexName: idx_market_candles_segment
+            tableName: market_data_candles
+            columns:
+              - column:
+                  name: segment_id

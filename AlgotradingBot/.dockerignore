@@ -1,0 +1,45 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Build artifacts
+.gradle
+build
+bin
+out
+
+# IDE files
+.idea
+.vscode
+.continue
+*.iml
+*.ipr
+*.iws
+
+# Environment and sensitive data
+.env
+.env.*
+!.env.example
+
+# Documentation (except critical)
+*.md
+!README.md
+
+# Test data and logs
+logs
+*.log
+sample-btc-eth-data.csv
+generate_data.ps1
+generate_sample_data.ps1
+
+# Test results and reports
+API_TEST_RESULTS.md
+SIGNAL_GENERATION_VERIFICATION.md
+PHASE5_COMPLETION_SUMMARY.md
+ALGOTRADING_PROJECT.md
+
+# Temporary files
+*.tmp
+*.swp
+*.bak

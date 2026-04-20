@@ -1,0 +1,69 @@
+{
+    "datasetName":  "US ETF Daily Small-Account Audit Pack",
+    "datasetFile":  "us-etf-daily-small-account-pack-2024-03-12-to-2026-03-12.csv",
+    "checksumSha256":  "edbceabab40fecde762158a542dc70678e8c315942e5e572f128e8d2c023fedc",
+    "schemaIdentity":  "ohlcv-v1",
+    "assetClass":  "ETF",
+    "timeframeCoverage":  [
+                              "1d"
+                          ],
+    "provider":  "Stooq daily history CSV",
+    "quoteCurrency":  "USD",
+    "market":  "US listed ETFs",
+    "sessionTemplate":  "US_EQUITIES",
+    "timezone":  "America/New_York",
+    "startDate":  "2024-03-12",
+    "endDate":  "2026-03-12",
+    "holdoutSplit":  {
+                         "inSampleStart":  "2024-03-12",
+                         "inSampleEnd":  "2025-07-01",
+                         "outOfSampleStart":  "2025-07-01",
+                         "outOfSampleEnd":  "2026-03-12"
+                     },
+    "rowCount":  2008,
+    "symbols":  [
+                    "SPY",
+                    "QQQ",
+                    "VTI",
+                    "VT"
+                ],
+    "sourceSeries":  [
+                         {
+                             "symbol":  "SPY",
+                             "source":  "https://stooq.com/q/d/l/?s=spy.us\u0026i=d",
+                             "venue":  "NYSE Arca",
+                             "rowCount":  502,
+                             "firstDate":  "2024-03-12",
+                             "lastDate":  "2026-03-12"
+                         },
+                         {
+                             "symbol":  "QQQ",
+                             "source":  "https://stooq.com/q/d/l/?s=qqq.us\u0026i=d",
+                             "venue":  "NASDAQ",
+                             "rowCount":  502,
+                             "firstDate":  "2024-03-12",
+                             "lastDate":  "2026-03-12"
+                         },
+                         {
+                             "symbol":  "VTI",
+                             "source":  "https://stooq.com/q/d/l/?s=vti.us\u0026i=d",
+                             "venue":  "NYSE Arca",
+                             "rowCount":  502,
+                             "firstDate":  "2024-03-12",
+                             "lastDate":  "2026-03-12"
+                         },
+                         {
+                             "symbol":  "VT",
+                             "source":  "https://stooq.com/q/d/l/?s=vt.us\u0026i=d",
+                             "venue":  "NYSE Arca",
+                             "rowCount":  502,
+                             "firstDate":  "2024-03-12",
+                             "lastDate":  "2026-03-12"
+                         }
+                     ],
+    "generation":  {
+                       "generatedAtUtc":  "2026-03-26T21:36:46Z",
+                       "generatedBy":  "scripts/build-strategy-audit-equity-dataset.ps1",
+                       "timestampConvention":  "Daily bars are normalized to the session date at 00:00:00 in ohlcv-v1 CSV format."
+                   }
+}

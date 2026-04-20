@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0018-add-async-monitoring-fields
+      author: codex
+      changes:
+        - addColumn:
+            tableName: market_data_import_jobs
+            columns:
+              - column:
+                  name: retry_count
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: max_retry_count
+                  type: int
+                  defaultValueNumeric: 4
+                  constraints:
+                    nullable: false

@@ -1,0 +1,73 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0015-backtest-dataset-uploaded-at-index
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          indexExists:
+            tableName: backtest_datasets
+            indexName: idx_backtest_dataset_uploaded_at
+      changes:
+        - createIndex:
+            indexName: idx_backtest_dataset_uploaded_at
+            tableName: backtest_datasets
+            columns:
+              - column:
+                  name: uploaded_at
+
+  - changeSet:
+      id: 0015-backtest-result-query-indexes
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          indexExists:
+            tableName: backtest_results
+            indexName: idx_backtest_experiment_key_timestamp
+      changes:
+        - createIndex:
+            indexName: idx_backtest_experiment_key_timestamp
+            tableName: backtest_results
+            columns:
+              - column:
+                  name: experiment_key
+              - column:
+                  name: timestamp
+        - createIndex:
+            indexName: idx_backtest_dataset_timestamp
+            tableName: backtest_results
+            columns:
+              - column:
+                  name: dataset_id
+              - column:
+                  name: timestamp
+        - createIndex:
+            indexName: idx_backtest_execution_status_timestamp
+            tableName: backtest_results
+            columns:
+              - column:
+                  name: execution_status
+              - column:
+                  name: timestamp
+
+  - changeSet:
+      id: 0015-market-data-import-ready-scan-index
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          indexExists:
+            tableName: market_data_import_jobs
+            indexName: idx_market_data_import_ready_scan
+      changes:
+        - createIndex:
+            indexName: idx_market_data_import_ready_scan
+            tableName: market_data_import_jobs
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: next_retry_at
+              - column:
+                  name: created_at

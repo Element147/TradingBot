@@ -1,0 +1,41 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0016-fix-market-data-import-job-staged-csv-data-bytea
+      author: codex
+      dbms: postgresql
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: market_data_import_jobs
+          - columnExists:
+              tableName: market_data_import_jobs
+              columnName: staged_csv_data
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              DO $$
+              DECLARE
+                staged_csv_data_type TEXT;
+              BEGIN
+                SELECT data_type
+                  INTO staged_csv_data_type
+                  FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'market_data_import_jobs'
+                   AND column_name = 'staged_csv_data';
+
+                IF staged_csv_data_type = 'oid' THEN
+                  ALTER TABLE market_data_import_jobs ADD COLUMN IF NOT EXISTS staged_csv_data_tmp BYTEA;
+                  UPDATE market_data_import_jobs
+                     SET staged_csv_data_tmp = lo_get(staged_csv_data)
+                   WHERE staged_csv_data IS NOT NULL;
+                  ALTER TABLE market_data_import_jobs DROP COLUMN staged_csv_data;
+                  ALTER TABLE market_data_import_jobs RENAME COLUMN staged_csv_data_tmp TO staged_csv_data;
+                ELSIF staged_csv_data_type IS NOT NULL AND staged_csv_data_type <> 'bytea' THEN
+                  ALTER TABLE market_data_import_jobs
+                    ALTER COLUMN staged_csv_data TYPE BYTEA
+                    USING convert_to(staged_csv_data::text, 'UTF8');
+                END IF;
+              END $$;

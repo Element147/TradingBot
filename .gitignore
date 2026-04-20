@@ -1,0 +1,71 @@
+# Temporary files
+temp_*.txt
+.pids/
+.runtime/
+
+# Backend (Spring Boot / Gradle)
+AlgotradingBot/HELP.md
+AlgotradingBot/.gradle
+AlgotradingBot/build/
+!AlgotradingBot/gradle/wrapper/gradle-wrapper.jar
+!AlgotradingBot/**/src/main/**/build/
+!AlgotradingBot/**/src/test/**/build/
+
+### STS ###
+AlgotradingBot/.apt_generated
+AlgotradingBot/.classpath
+AlgotradingBot/.factorypath
+AlgotradingBot/.project
+AlgotradingBot/.settings
+AlgotradingBot/.springBeans
+AlgotradingBot/.sts4-cache
+AlgotradingBot/bin/
+!AlgotradingBot/**/src/main/**/bin/
+!AlgotradingBot/**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+AlgotradingBot/out/
+!AlgotradingBot/**/src/main/**/out/
+!AlgotradingBot/**/src/test/**/out/
+
+### NetBeans ###
+AlgotradingBot/nbproject/private/
+AlgotradingBot/nbbuild/
+AlgotradingBot/dist/
+AlgotradingBot/nbdist/
+AlgotradingBot/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+# Frontend (React / Node.js)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/lerna-debug.log*
+frontend/.DS_Store
+frontend/coverage/
+frontend/.vite/
+frontend/.turbo/
+
+# Logs
+*.log
+logs/
+AlgotradingBot/backups/
+AlgotradingBot/production-readiness-*.txt
+
+# Kiro settings with sensitive data
+.kiro/settings/models.json
+.kiro/settings/mcp.json

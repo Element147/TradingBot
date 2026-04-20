@@ -1,0 +1,13 @@
+package com.algotrader.bot.repair;
+
+public enum RepairAction {
+    CLEAN_GRADLE_CACHE,
+    REBUILD_JAR,
+    PRUNE_DOCKER_IMAGES,
+    REBUILD_DOCKER_IMAGE,
+    RESTART_SERVICES,
+    RESOLVE_PORT_CONFLICTS,
+    CLEANUP_ORPHANED_CONTAINERS,
+    RESTART_CONTAINER,
+    CHECK_LOGS
+}

@@ -1,0 +1,85 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0015-create-exchange-connection-profiles
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: exchange_connection_profiles
+      changes:
+        - createTable:
+            tableName: exchange_connection_profiles
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(64)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: exchange_name
+                  type: VARCHAR(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: api_key_encrypted
+                  type: VARCHAR(2048)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: api_secret_encrypted
+                  type: VARCHAR(2048)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: testnet
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: exchange_connection_profiles
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_exchange_connection_user
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_exchange_connection_user
+            tableName: exchange_connection_profiles
+            columns:
+              - column:
+                  name: user_id
+        - createIndex:
+            indexName: idx_exchange_connection_user_active
+            tableName: exchange_connection_profiles
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: active

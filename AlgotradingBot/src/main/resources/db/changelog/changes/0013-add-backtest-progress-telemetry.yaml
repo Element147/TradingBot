@@ -1,0 +1,93 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0013-add-backtest-progress-telemetry
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              tableName: backtest_results
+          - not:
+              columnExists:
+                tableName: backtest_results
+                columnName: execution_stage
+      changes:
+        - addColumn:
+            tableName: backtest_results
+            columns:
+              - column:
+                  name: execution_stage
+                  type: VARCHAR(40)
+                  defaultValue: COMPLETED
+              - column:
+                  name: progress_percent
+                  type: INT
+                  defaultValueNumeric: 100
+              - column:
+                  name: processed_candles
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: total_candles
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: current_data_timestamp
+                  type: TIMESTAMP
+              - column:
+                  name: status_message
+                  type: VARCHAR(500)
+              - column:
+                  name: last_progress_at
+                  type: TIMESTAMP
+              - column:
+                  name: started_at
+                  type: TIMESTAMP
+              - column:
+                  name: completed_at
+                  type: TIMESTAMP
+        - sql:
+            splitStatements: false
+            sql: |
+              UPDATE backtest_results
+                 SET execution_stage = CASE
+                     WHEN execution_status = 'FAILED' THEN 'FAILED'
+                     WHEN execution_status = 'COMPLETED' THEN 'COMPLETED'
+                     ELSE 'QUEUED'
+                   END,
+                     progress_percent = CASE
+                     WHEN execution_status IN ('COMPLETED', 'FAILED') THEN 100
+                     ELSE 0
+                   END,
+                     current_data_timestamp = CASE
+                     WHEN execution_status = 'COMPLETED' THEN end_date
+                     ELSE current_data_timestamp
+                   END,
+                     status_message = CASE
+                     WHEN execution_status = 'FAILED' THEN COALESCE(error_message, 'Execution failed.')
+                     WHEN execution_status = 'COMPLETED' THEN 'Completed.'
+                     ELSE 'Queued.'
+                   END,
+                     last_progress_at = COALESCE(updated_at, timestamp),
+                     started_at = COALESCE(created_at, timestamp),
+                     completed_at = CASE
+                     WHEN execution_status IN ('COMPLETED', 'FAILED') THEN COALESCE(updated_at, timestamp)
+                     ELSE NULL
+                   END
+               WHERE execution_stage IS NULL;
+        - addNotNullConstraint:
+            tableName: backtest_results
+            columnName: execution_stage
+            columnDataType: VARCHAR(40)
+        - addNotNullConstraint:
+            tableName: backtest_results
+            columnName: progress_percent
+            columnDataType: INT
+        - addNotNullConstraint:
+            tableName: backtest_results
+            columnName: processed_candles
+            columnDataType: INT
+        - addNotNullConstraint:
+            tableName: backtest_results
+            columnName: total_candles
+            columnDataType: INT

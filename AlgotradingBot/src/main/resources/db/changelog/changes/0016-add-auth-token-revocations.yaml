@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0016-create-auth-token-revocations
+      author: codex
+      changes:
+        - createTable:
+            tableName: auth_token_revocations
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: token_hash
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: expires_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: revoked_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: auth_token_revocations
+            indexName: idx_auth_token_revocation_expires_at
+            columns:
+              - column:
+                  name: expires_at

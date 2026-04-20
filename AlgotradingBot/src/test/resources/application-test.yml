@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: algotrading-bot-test
+  
+  # H2 In-Memory Database for Testing
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # JPA/Hibernate Configuration for Tests
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  liquibase:
+    enabled: false
+  
+# JWT Configuration for Tests
+jwt:
+  secret: testSecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256AlgorithmInTestEnvironment
+  expiration: 3600000
+  refresh-expiration: 604800000
+
+# Logging Configuration for Tests
+logging:
+  level:
+    root: WARN
+    com.algotrader.bot: INFO
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate: WARN
+
+# Application-Specific Configuration for Tests
+algotrading:
+  system:
+    backup-dir: build/test-backups
+  risk:
+    max-risk-per-trade: 0.02
+    max-drawdown-limit: 0.25
+    circuit-breaker:
+      sharpe-threshold: 0.8
+      evaluation-days: 5
+  trading:
+    min-position-size: 5.0
+    max-position-size: 100.0
+    cash-buffer-percent: 0.25
+  fees:
+    taker-fee: 0.001
+    slippage: 0.0003
