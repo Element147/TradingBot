@@ -69,3 +69,7 @@ AlgotradingBot/production-readiness-*.txt
 # Kiro settings with sensitive data
 .kiro/settings/models.json
 .kiro/settings/mcp.json
+
+# Antigravity artifacts and scratch
+.gemini/
+scratch/

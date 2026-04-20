@@ -69,4 +69,4 @@ Deeper references:
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): future-facing scope
 - [`docs/research/`](docs/research): strategy audit methodology, datasets, audit summaries, and strategy specs
 - [`docs/adr/`](docs/adr): durable architecture decisions
-- [`.codex/agents/README.md`](.codex/agents/README.md): project-local Codex agents
+- [`AGENTS.md`](AGENTS.md): project-local Antigravity workflows and agentic roles

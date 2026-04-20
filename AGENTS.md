@@ -78,14 +78,15 @@ If a task touches a planned feature, cite the relevant planning document and kee
   - `hoverfly-mcp-server` for optional provider/exchange API mocking
 - Docker MCP path and host conventions are documented in `docs/guides/LOCAL_DEVELOPMENT.md`.
 
-## Project Codex Agents
+## Antigravity Roles & Workflows
 
-Project-local Codex agents live in `.codex/agents/` and are part of the standard tooling for this repository.
+Antigravity uses dynamic roles via prompt alignment. Rather than physical agent files, use the following roles to instruct Antigravity for specific tasks.
+Antigravity automatically leverages Knowledge Items (KIs) to maintain persistent memory and context. If a recurrent pattern is established or an architectural decision is made, you may ask Antigravity to capture it as a KI.
+Also, Antigravity extensively uses Planning Mode. If you require a multi-step task, ask it to create an `implementation_plan.md`.
 
-- Use the matching project-local agent proactively when a task clearly fits, even if the user does not mention the agent by name.
-- Prefer one primary agent and at most two supporting agents so context stays tight.
-- Announce which agent or agents you are using and why in one short line.
-- If agent delegation is unavailable in the current Codex environment, follow the same specialist lens directly instead of skipping it.
+- Use the matching role proactively when a task clearly fits.
+- Prefer one primary role so context stays tight.
+- Announce which role you are adopting and why.
 
 Routing rules:
 
