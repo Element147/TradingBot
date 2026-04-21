@@ -8,7 +8,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -29,6 +29,7 @@ import {
   getDefaultVisibleOverlayKeys,
   summarizeMarkerFilter,
   type BacktestMarkerFilter,
+  type WorkspaceMarker,
 } from './backtestWorkspace';
 import { BacktestWorkspaceChart } from './BacktestWorkspaceChart';
 
@@ -202,6 +203,21 @@ export default function BacktestWorkspacePanel({ details }: BacktestWorkspacePan
   const focusTimestamp = useMemo(
     () => deriveWorkspaceFocusTime(inspectorMarker ?? visibleSelectedMarker, selectedTrade),
     [inspectorMarker, selectedTrade, visibleSelectedMarker]
+  );
+
+  const handleMarkerSelect = useCallback(
+    (marker: WorkspaceMarker) => {
+      setSearchParams(
+        (prevParams) => {
+          const nextParams = new URLSearchParams(prevParams);
+          nextParams.set('marker', marker.id);
+          nextParams.set('trade', marker.tradeId);
+          return nextParams;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
   );
 
   if (tradesLoading || telemetryLoading) {
@@ -382,12 +398,7 @@ export default function BacktestWorkspacePanel({ details }: BacktestWorkspacePan
                 showExposurePane={visiblePanes.includes('exposure')}
                 showOscillatorPane={visiblePanes.includes('oscillator')}
                 focusTimestamp={focusTimestamp}
-                onMarkerSelect={(marker) => {
-                  updateWorkspaceParams((params) => {
-                    params.set('marker', marker.id);
-                    params.set('trade', marker.tradeId);
-                  });
-                }}
+                onMarkerSelect={handleMarkerSelect}
               />
             </Stack>
           </SurfacePanel>
