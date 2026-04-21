@@ -81,7 +81,9 @@ If a task touches a planned feature, cite the relevant planning document and kee
 ## Antigravity Roles & Workflows
 
 Antigravity uses dynamic roles via prompt alignment. Rather than physical agent files, use the following roles to instruct Antigravity for specific tasks.
-Antigravity automatically leverages Knowledge Items (KIs) to maintain persistent memory and context. If a recurrent pattern is established or an architectural decision is made, you may ask Antigravity to capture it as a KI.
+
+Antigravity automatically leverages Knowledge Items (KIs) to maintain persistent memory and context. **Core repository guidelines from this file, `ARCHITECTURE.md`, and `TRADING_GUARDRAILS.md` have been fully ingested into KIs for optimal Antigravity context.** If a new recurrent pattern is established or an architectural decision is made, you may ask Antigravity to capture it as a KI.
+
 Also, Antigravity extensively uses Planning Mode. If you require a multi-step task, ask it to create an `implementation_plan.md`.
 
 - Use the matching role proactively when a task clearly fits.

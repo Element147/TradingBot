@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+AlgotradingBot/build/
+AlgotradingBot/out/
+frontend/dist/
+frontend/build/
+
+# Misc
+.DS_Store
+*.pem
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Antigravity artifacts
+.gemini/
+scratch/
+
+# Kiro (legacy)
+.kiro/
