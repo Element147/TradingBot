@@ -47,10 +47,6 @@ export function OperatorAuditPanel() {
       outcome,
       targetType,
       search: search.trim(),
-    },
-    {
-      pollingInterval: 30000,
-      skipPollingIfUnfocused: true,
     }
   );
 

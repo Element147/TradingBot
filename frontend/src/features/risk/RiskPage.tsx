@@ -42,16 +42,10 @@ const playAlertTone = () => {
 
 export default function RiskPage() {
   const environmentMode = useAppSelector(selectEnvironmentMode);
-  const { data: status, isLoading: isStatusLoading } = useGetRiskStatusQuery(undefined, {
-    pollingInterval: 30000,
-    skipPollingIfUnfocused: true,
-  });
+  const { data: status, isLoading: isStatusLoading } = useGetRiskStatusQuery();
   const { data: config, isLoading: isConfigLoading } = useGetRiskConfigQuery();
   const { data: circuitBreakers = [] } = useGetCircuitBreakersQuery();
-  const { data: alerts = [] } = useGetRiskAlertsQuery(undefined, {
-    pollingInterval: 5000,
-    skipPollingIfUnfocused: true,
-  });
+  const { data: alerts = [] } = useGetRiskAlertsQuery();
 
   const [updateConfig, { isLoading: isSavingConfig }] = useUpdateRiskConfigMutation();
   const [overrideCircuitBreaker, { isLoading: isOverriding }] =

@@ -91,10 +91,7 @@ export default function TradesPage() {
 
   const debouncedSearchId = useDebouncedValue(draft.searchId, 300);
 
-  const { data, isFetching, isError, refetch } = useGetTradeHistoryQuery(query, {
-    pollingInterval: 10000,
-    skipPollingIfUnfocused: true,
-  });
+  const { data, isFetching, isError, refetch } = useGetTradeHistoryQuery(query);
 
   const trades = useMemo(() => data?.items ?? [], [data]);
   const limit = Number(draft.limit) || 200;

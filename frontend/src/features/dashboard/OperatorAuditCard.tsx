@@ -13,8 +13,7 @@ import { formatDateTime } from '@/utils/formatters';
 
 export function OperatorAuditCard() {
   const { data, isLoading, isError } = useGetAuditEventsQuery(
-    { limit: 6 },
-    { pollingInterval: 30000, skipPollingIfUnfocused: true }
+    { limit: 6 }
   );
 
   const events = data?.events ?? [];

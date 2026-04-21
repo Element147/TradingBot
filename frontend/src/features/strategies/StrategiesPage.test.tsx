@@ -83,10 +83,7 @@ describe('StrategiesPage', () => {
     expect(screen.getByText('Paper-safe strategy desk')).toBeInTheDocument();
     expect(getStrategiesQueryMock).toHaveBeenCalledWith(
       { executionContext: 'paper' },
-      expect.objectContaining({
-        pollingInterval: 30000,
-        skipPollingIfUnfocused: true,
-      })
+      undefined
     );
     expect(screen.getByRole('tab', { name: 'Saved configs' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Strategy guide' })).toBeInTheDocument();

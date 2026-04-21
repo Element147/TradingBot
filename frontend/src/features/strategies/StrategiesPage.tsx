@@ -131,10 +131,7 @@ export default function StrategiesPage() {
     isLoading,
     isError,
     error,
-  } = useGetStrategiesQuery(PAPER_STRATEGIES_QUERY, {
-    pollingInterval: 30000,
-    skipPollingIfUnfocused: true,
-  });
+  } = useGetStrategiesQuery(PAPER_STRATEGIES_QUERY);
   const [startStrategy, { isLoading: isStarting }] = useStartStrategyMutation();
   const [stopStrategy, { isLoading: isStopping }] = useStopStrategyMutation();
   const [updateConfig, { isLoading: isSavingConfig }] =

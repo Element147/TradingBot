@@ -114,8 +114,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const subscribedChannels = useAppSelector(selectSubscribedChannels);
   const { data: riskStatus } = useGetRiskStatusQuery(undefined, {
     skip: !isAuthenticated,
-    pollingInterval: 30000,
-    skipPollingIfUnfocused: true,
   });
   const { data: savedConnections } = useGetSavedExchangeConnectionsQuery(undefined, {
     skip: !isAuthenticated,
