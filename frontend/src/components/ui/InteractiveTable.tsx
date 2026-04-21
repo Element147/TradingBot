@@ -43,7 +43,7 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { EmptyState, StatusPill, SurfacePanel } from './Workbench';
 
@@ -160,7 +160,7 @@ export function useInteractiveTableState({
     window.localStorage.setItem(storageKeyFor(tableId), JSON.stringify(state));
   }, [state, tableId]);
 
-  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+  const onSortingChange = useCallback<OnChangeFn<SortingState>>((updater) => {
     setState((current) => ({
       ...current,
       sorting: functionalUpdate(updater, current.sorting),
@@ -169,9 +169,9 @@ export function useInteractiveTableState({
         pageIndex: 0,
       },
     }));
-  };
+  }, []);
 
-  const onColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (updater) => {
+  const onColumnFiltersChange = useCallback<OnChangeFn<ColumnFiltersState>>((updater) => {
     setState((current) => ({
       ...current,
       columnFilters: functionalUpdate(updater, current.columnFilters),
@@ -180,9 +180,9 @@ export function useInteractiveTableState({
         pageIndex: 0,
       },
     }));
-  };
+  }, []);
 
-  const onGlobalFilterChange = (value: string) => {
+  const onGlobalFilterChange = useCallback((value: string) => {
     setState((current) => ({
       ...current,
       globalFilter: value,
@@ -191,34 +191,34 @@ export function useInteractiveTableState({
         pageIndex: 0,
       },
     }));
-  };
+  }, []);
 
-  const onColumnSizingChange: OnChangeFn<ColumnSizingState> = (updater) => {
+  const onColumnSizingChange = useCallback<OnChangeFn<ColumnSizingState>>((updater) => {
     setState((current) => ({
       ...current,
       columnSizing: functionalUpdate(updater, current.columnSizing),
     }));
-  };
+  }, []);
 
-  const onPaginationChange: OnChangeFn<PaginationState> = (updater) => {
+  const onPaginationChange = useCallback<OnChangeFn<PaginationState>>((updater) => {
     setState((current) => ({
       ...current,
       pagination: functionalUpdate(updater, current.pagination),
     }));
-  };
+  }, []);
 
-  const onColumnVisibilityChange: OnChangeFn<VisibilityState> = (updater) => {
+  const onColumnVisibilityChange = useCallback<OnChangeFn<VisibilityState>>((updater) => {
     setState((current) => ({
       ...current,
       columnVisibility: functionalUpdate(updater, current.columnVisibility),
     }));
-  };
+  }, []);
 
-  const resetState = () => {
+  const resetState = useCallback(() => {
     setState(buildDefaultState(initialPageSize));
-  };
+  }, [initialPageSize]);
 
-  return {
+  return useMemo(() => ({
     state,
     onSortingChange,
     onColumnFiltersChange,
@@ -227,7 +227,16 @@ export function useInteractiveTableState({
     onPaginationChange,
     onColumnVisibilityChange,
     resetState,
-  };
+  }), [
+    state,
+    onSortingChange,
+    onColumnFiltersChange,
+    onGlobalFilterChange,
+    onColumnSizingChange,
+    onPaginationChange,
+    onColumnVisibilityChange,
+    resetState,
+  ]);
 }
 
 interface InteractiveTableProps<TData extends RowData> {
