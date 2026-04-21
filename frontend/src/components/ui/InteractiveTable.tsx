@@ -42,7 +42,8 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { EmptyState, StatusPill, SurfacePanel } from './Workbench';
 
@@ -315,6 +316,7 @@ export function InteractiveTable<TData extends RowData>({
 }: InteractiveTableProps<TData>) {
   const { state } = stateControls;
   const [columnsMenuAnchor, setColumnsMenuAnchor] = useState<null | HTMLElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   
   // TanStack Table owns imperative sizing and sorting handlers, so this hook must stay local here.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -347,6 +349,19 @@ export function InteractiveTable<TData extends RowData>({
   const pageCount = manualPagination
     ? Math.max(1, Math.ceil((resolvedTotalRows || 0) / state.pagination.pageSize))
     : Math.max(1, table.getPageCount());
+
+  const rowVirtualizer = useVirtualizer({
+    count: tableRows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 40,
+    overscan: 10,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const totalSize = rowVirtualizer.getTotalSize();
+
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0]?.start || 0 : 0;
+  const paddingBottom = virtualRows.length > 0 ? totalSize - (virtualRows[virtualRows.length - 1]?.end || 0) : 0;
 
   const derivedFilterPills = useMemo(() => {
     const pills: ReactNode[] = [];
@@ -502,8 +517,10 @@ export function InteractiveTable<TData extends RowData>({
 
       {!error ? (
         <TableContainer
+          ref={tableContainerRef}
           sx={{
             maxHeight,
+            overflow: 'auto',
             borderRadius: 2.5,
             border: (theme) => `1px solid ${theme.palette.divider}`,
             backgroundColor: 'background.paper',
@@ -716,8 +733,14 @@ export function InteractiveTable<TData extends RowData>({
                   </TableCell>
                 </TableRow>
               ) : null}
+              {!loading && paddingTop > 0 ? (
+                <TableRow>
+                  <TableCell style={{ height: `${paddingTop}px` }} colSpan={table.getVisibleLeafColumns().length} sx={{ p: 0, border: 0 }} />
+                </TableRow>
+              ) : null}
               {!loading
-                ? tableRows.map((row) => {
+                ? virtualRows.map((virtualRow) => {
+                    const row = tableRows[virtualRow.index];
                     const rowSelected = isRowSelected ? isRowSelected(row.original) : false;
 
                     return (
@@ -726,6 +749,8 @@ export function InteractiveTable<TData extends RowData>({
                         hover
                         selected={rowSelected}
                         onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                        data-index={virtualRow.index}
+                        ref={rowVirtualizer.measureElement}
                         sx={{
                           cursor: onRowClick ? 'pointer' : 'default',
                           '& td': {
@@ -759,6 +784,11 @@ export function InteractiveTable<TData extends RowData>({
                     );
                   })
                 : null}
+              {!loading && paddingBottom > 0 ? (
+                <TableRow>
+                  <TableCell style={{ height: `${paddingBottom}px` }} colSpan={table.getVisibleLeafColumns().length} sx={{ p: 0, border: 0 }} />
+                </TableRow>
+              ) : null}
             </TableBody>
           </Table>
         </TableContainer>
