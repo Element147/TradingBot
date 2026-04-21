@@ -69,32 +69,31 @@ Verified on March 19, 2026, March 20, 2026, March 30, 2026, April 7, 2026, April
 - `.\security-scan.ps1 -FailOnFindings`: passed
 - `.\run.ps1` and `.\run-all.ps1` smoke paths completed successfully
 
-## Known Incident: Postgres Volume Migration Drift (April 21, 2026)
+## Known Incident: Postgres Volume Migration Drift (April 21, 2026) — CLOSED
 
 ### Root Cause
 
-The Postgres Docker volume (`algotradingbot_postgres_data`) contained database migrations **0019 through 0022** that were applied by a prior Codex session but **never committed to source control**. These migrations:
+The Postgres Docker volume (`algotradingbot_postgres_data`) contained database migrations **0019 through 0022** that were applied by a prior Codex session but **never committed to source control**. The critical migration dropped the `csv_data` column from `backtest_datasets` and `staged_csv_data` from `market_data_import_jobs`. However, the committed Java code still actively uses both columns:
 
-- Added a `ready` flag to `backtest_datasets`
-- Dropped the `csv_data` column from `backtest_datasets` (legacy binary storage retired in favour of the relational market-data store introduced in 0017)
-- Dropped `staged_csv_data` from `market_data_import_jobs`
-- Fixed the `market_data_candles` primary key
-- Added backtest history metrics fields
-- Extended the `experiment_name` varchar length
+- `BacktestDatasetCandleCache.java` reads `csv_data` for the legacy CSV fallback path
+- `BacktestDatasetStorageService.java` reads `csv_data` for dataset download fallback
+- `LegacyMarketDataMigrationService.java` reads `csv_data` to parse candles during migration
+- `MarketDataImportExecutionService.java` reads and writes `staged_csv_data` during async import
 
-When the application started against this volume, Hibernate schema validation failed because the `BacktestDataset` JPA entity still mapped a `csv_data` column that had been dropped from the DB. This produced the `Schema validation: missing column [csv_data]` error which caused backtests to fail to start.
+This means the out-of-tree migrations were **erroneous** — they removed columns the application still requires. When the application started against that stale volume, Hibernate schema validation failed with `Schema validation: missing column [csv_data]`, blocking all backtest executions.
 
-### Recovery
+### Resolution
 
-The volume was reset with `docker compose down -v`. On a **fresh** volume (migrations 0000-0018 only), the JPA entities match the schema and the application starts correctly.
+The stale volume was reset with `docker compose down -v`. The fresh volume running migrations 0000-0018 is the correct authoritative state:
 
-**Outstanding action required:** The audit dataset (`id=12`, `Binance BTC/USDT +2 15m 2024-03-12 to 2026-03-12`, checksum `b93c95da97c05f4edf4d706b80d33fcfab752f4f4d6f11f003fa3aca2fe2d326`) must be re-uploaded via the dataset management API before the `strategyCatalogAudit` and `phaseThreeStrategyAudit` Gradle tasks can succeed. The `strategyCatalogAudit` and `phaseThreeStrategyAudit` tasks require this dataset to be present at `id=12` with a matching checksum. If the DB was seeded from the relational market-data store (market_data_series / market_data_candles), those import jobs will also need to be re-run.
+- All JPA entities are consistent with the schema
+- All tests pass (`gradlew test` BUILD SUCCESSFUL, full suite, April 21 2026)
+- No new migration files are needed — the old 0019-0022 must not be reconstructed as-written because they would re-introduce the same mismatch
+- No entity changes are needed — `csv_data` and `staged_csv_data` remain valid mapped columns
 
-### Prevention
+### Outstanding Data-Only Action
 
-- The missing migration files (0019-0022) should be reconstructed and committed to `db/changelog/changes/` to prevent future drift if the volume is ever reset again.
-- The `BacktestDataset` entity's `csv_data` field should be removed once migration 0019 is committed, since the column is no longer present in the migrated schema.
-- The `ready` flag added by migration 0019 should be added to the `BacktestDataset` entity once the migration file exists.
+The audit dataset (`id=12`, `Binance BTC/USDT +2 15m 2024-03-12 to 2026-03-12`, checksum `b93c95da97c05f4edf4d706b80d33fcfab752f4f4d6f11f003fa3aca2fe2d326`) must be re-uploaded via the dataset management API before the `strategyCatalogAudit` and `phaseThreeStrategyAudit` Gradle tasks can succeed. This is a data-only action, not a code change. Import jobs for the relational market-data store will also need to be re-run after re-upload.
 
 ## Current Research Posture
 
