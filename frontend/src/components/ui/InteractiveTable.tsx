@@ -2,9 +2,14 @@
 import NorthRoundedIcon from '@mui/icons-material/NorthRounded';
 import SouthRoundedIcon from '@mui/icons-material/SouthRounded';
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
+import ViewColumnRoundedIcon from '@mui/icons-material/ViewColumnRounded';
 import {
   Box,
   Button,
+  Checkbox,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Pagination,
   Stack,
@@ -35,6 +40,7 @@ import {
   type Row,
   type RowData,
   type SortingState,
+  type VisibilityState,
 } from '@tanstack/react-table';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
@@ -61,6 +67,7 @@ export interface InteractiveTablePersistedState {
   globalFilter: string;
   columnSizing: ColumnSizingState;
   pagination: PaginationState;
+  columnVisibility: VisibilityState;
 }
 
 export interface InteractiveTableStateControls {
@@ -70,6 +77,7 @@ export interface InteractiveTableStateControls {
   onGlobalFilterChange: (value: string) => void;
   onColumnSizingChange: OnChangeFn<ColumnSizingState>;
   onPaginationChange: OnChangeFn<PaginationState>;
+  onColumnVisibilityChange: OnChangeFn<VisibilityState>;
   resetState: () => void;
 }
 
@@ -87,6 +95,7 @@ const buildDefaultState = (initialPageSize: number): InteractiveTablePersistedSt
     pageIndex: 0,
     pageSize: initialPageSize,
   },
+  columnVisibility: {},
 });
 
 const storageKeyFor = (tableId: string) => `interactive-table:${tableId}`;
@@ -113,6 +122,10 @@ const loadPersistedState = (
       columnSizing:
         parsed.columnSizing && typeof parsed.columnSizing === 'object'
           ? parsed.columnSizing
+          : {},
+      columnVisibility:
+        parsed.columnVisibility && typeof parsed.columnVisibility === 'object'
+          ? parsed.columnVisibility
           : {},
       pagination: {
         pageIndex:
@@ -193,6 +206,13 @@ export function useInteractiveTableState({
     }));
   };
 
+  const onColumnVisibilityChange: OnChangeFn<VisibilityState> = (updater) => {
+    setState((current) => ({
+      ...current,
+      columnVisibility: functionalUpdate(updater, current.columnVisibility),
+    }));
+  };
+
   const resetState = () => {
     setState(buildDefaultState(initialPageSize));
   };
@@ -204,6 +224,7 @@ export function useInteractiveTableState({
     onGlobalFilterChange,
     onColumnSizingChange,
     onPaginationChange,
+    onColumnVisibilityChange,
     resetState,
   };
 }
@@ -293,6 +314,8 @@ export function InteractiveTable<TData extends RowData>({
   maxHeight = 680,
 }: InteractiveTableProps<TData>) {
   const { state } = stateControls;
+  const [columnsMenuAnchor, setColumnsMenuAnchor] = useState<null | HTMLElement>(null);
+  
   // TanStack Table owns imperative sizing and sorting handlers, so this hook must stay local here.
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -314,6 +337,7 @@ export function InteractiveTable<TData extends RowData>({
     onColumnFiltersChange: stateControls.onColumnFiltersChange,
     onColumnSizingChange: stateControls.onColumnSizingChange,
     onPaginationChange: stateControls.onPaginationChange,
+    onColumnVisibilityChange: stateControls.onColumnVisibilityChange,
     globalFilterFn: 'includesString',
   });
 
@@ -421,6 +445,43 @@ export function InteractiveTable<TData extends RowData>({
             <Button variant="outlined" onClick={stateControls.resetState}>
               Reset table
             </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ViewColumnRoundedIcon />}
+              onClick={(e) => setColumnsMenuAnchor(e.currentTarget)}
+            >
+              Columns
+            </Button>
+            <Menu
+              anchorEl={columnsMenuAnchor}
+              open={Boolean(columnsMenuAnchor)}
+              onClose={() => setColumnsMenuAnchor(null)}
+              slotProps={{ paper: { sx: { minWidth: 200, maxHeight: 400 } } }}
+            >
+              {table.getAllLeafColumns().map((column) => {
+                const headerContent =
+                  typeof column.columnDef.header === 'string'
+                    ? column.columnDef.header
+                    : column.id;
+                return (
+                  <MenuItem
+                    key={column.id}
+                    onClick={column.getToggleVisibilityHandler()}
+                    disabled={!column.getCanHide()}
+                  >
+                    <ListItemIcon>
+                      <Checkbox
+                        checked={column.getIsVisible()}
+                        size="small"
+                        disableRipple
+                        sx={{ p: 0 }}
+                      />
+                    </ListItemIcon>
+                    <ListItemText primary={headerContent} />
+                  </MenuItem>
+                );
+              })}
+            </Menu>
           </Stack>
         </Stack>
 
