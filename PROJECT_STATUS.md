@@ -25,7 +25,7 @@ The repository is a usable local-first MVP for strategy research, market-data pr
 
 - CSV dataset uploads and provider imports
 - Persistent import jobs with retry-aware state and polling/WebSocket monitoring
-- Fully normalized relational market-data store for all runtime query paths; legacy CSV blob storage is decommissioned
+- **Market Data Persistence**: Normalized relational store (`market_data_candles`) is the sole source of truth. Legacy CSV storage has been fully decommissioned and columns removed.
 - Dataset provenance, retention, download, archive, and restore flows
 - Kraken public OHLC imports now fail fast when the requested range is older than its rolling 720-candle provider limit, instead of exhausting retries against an impossible window
 
@@ -67,22 +67,20 @@ Verified on March 19, 2026, March 20, 2026, March 30, 2026, April 7, 2026, April
 - `.\security-scan.ps1 -FailOnFindings`: passed
 - `.\run.ps1` and `.\run-all.ps1` smoke paths completed successfully
 
-## Resolved Incident: Postgres Volume Migration Drift (April 21-22, 2026) — CLOSED
+## Completed: Legacy Market Data Normalization (April 22, 2026)
 
-### Root Cause
+### Outcome
 
-The Postgres Docker volume contained database migrations that were applied out-of-band, causing a mismatch with the Java entities. This has been resolved by:
+The decommissioning of legacy CSV-based market data storage is complete. The system now operates exclusively on the relational `market_data_candles` store.
 
-1. Finalizing the relational market data normalization.
-2. Removing the legacy `csv_data` and `staged_csv_data` columns from both the database (via migration 0023) and the JPA entities.
-3. Removing all legacy CSV fallback code.
+1. **Relational Normalization**: All market data is stored and queried via the `market_data_candles` table.
+2. **Schema Cleanup**: Legacy `csv_data` and `staged_csv_data` columns have been removed from the database (via migration `0019`) and all JPA entities.
+3. **Code Decommissioning**: Legacy CSV-parsing fallback logic, `BacktestDatasetCandleCache`, and related services have been removed.
+4. **Verification**: Full test suite passing with the normalized relational store.
 
-The stale volume was reset with `docker compose down -v`. The fresh volume running migrations 0000-0018 is the correct authoritative state:
-
-- All JPA entities are consistent with the schema
-- All tests pass (`gradlew test` BUILD SUCCESSFUL, full suite, April 21 2026)
-- No new migration files are needed — the old 0019-0022 must not be reconstructed as-written because they would re-introduce the same mismatch
-- No entity changes are needed — `csv_data` and `staged_csv_data` remain valid mapped columns
+The database volume is stable with migrations `0000-0019` applied:
+- All JPA entities are consistent with the relational schema.
+- All tests pass (`gradlew test` BUILD SUCCESSFUL).
 
 ### Outstanding Data-Only Action
 
