@@ -84,7 +84,7 @@ The shell owns the main route context. Feature routes are expected to plug into 
 2. Import jobs run asynchronously with retry-aware state.
 3. New datasets hydrate the normalized market-data store during ingestion.
 4. Backtests and telemetry reads use the normalized store when coverage is available.
-5. Legacy CSV blobs remain a compatibility fallback only where needed.
+5. Backtests and telemetry reads exclusively use the normalized relational store.
 
 ## Runtime And Data Model
 

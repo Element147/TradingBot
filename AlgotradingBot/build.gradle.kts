@@ -234,17 +234,6 @@ tasks.register<Test>("exportOpenApiContract") {
     }
 }
 
-tasks.register<JavaExec>("legacyMarketDataFlowAudit") {
-    group = "verification"
-    description = "Benchmark the legacy CSV-backed dataset flow and write a markdown audit report."
-    dependsOn(tasks.named("testClasses"))
-    classpath = sourceSets["test"].runtimeClasspath
-    mainClass.set("com.algotrader.bot.analysis.LegacyMarketDataFlowAuditRunner")
-    systemProperty(
-        "legacyAudit.output",
-        layout.buildDirectory.file("reports/legacy-market-data-flow-audit/report.md").get().asFile.absolutePath
-    )
-}
 
 tasks.register<JavaExec>("backendWorkflowProfile") {
     group = "verification"
@@ -282,45 +271,6 @@ tasks.register<JavaExec>("phaseThreeStrategyAudit") {
     )
 }
 
-tasks.register<JavaExec>("migrateLegacyDatasets") {
-    group = "migration"
-    description = "Migrate legacy CSV-backed backtest datasets into the normalized market-data store."
-    dependsOn(tasks.named("classes"))
-    classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("com.algotrader.bot.migration.LegacyMarketDataMigrationRunner")
-    systemProperty("spring.main.web-application-type", "none")
-    providers.gradleProperty("legacyMigrationSpringProfile").orNull?.let { profile ->
-        systemProperty("spring.profiles.active", profile)
-    }
-    systemProperty(
-        "legacyMigration.dryRun",
-        providers.gradleProperty("legacyMigrationDryRun").orElse("true").get()
-    )
-    providers.gradleProperty("legacyMigrationDatasetIds").orNull?.let { datasetIds ->
-        systemProperty("legacyMigration.datasetIds", datasetIds)
-    }
-    providers.gradleProperty("legacyMigrationLimit").orNull?.let { limit ->
-        systemProperty("legacyMigration.limit", limit)
-    }
-}
-
-tasks.register<JavaExec>("reconcileLegacyDatasets") {
-    group = "migration"
-    description = "Reconcile legacy CSV-backed backtest datasets against the normalized market-data store."
-    dependsOn(tasks.named("classes"))
-    classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("com.algotrader.bot.migration.LegacyMarketDataReconciliationRunner")
-    systemProperty("spring.main.web-application-type", "none")
-    providers.gradleProperty("legacyMigrationSpringProfile").orNull?.let { profile ->
-        systemProperty("spring.profiles.active", profile)
-    }
-    providers.gradleProperty("legacyMigrationDatasetIds").orNull?.let { datasetIds ->
-        systemProperty("legacyMigration.datasetIds", datasetIds)
-    }
-    providers.gradleProperty("legacyMigrationLimit").orNull?.let { limit ->
-        systemProperty("legacyMigration.limit", limit)
-    }
-}
 
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(targetJavaVersion.asInt())

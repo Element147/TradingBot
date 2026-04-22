@@ -26,6 +26,8 @@ import com.algotrader.bot.service.marketdata.MarketDataQueryService;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -45,6 +47,8 @@ import java.util.Map;
 import java.util.Set;
 
 public final class StrategyCatalogAuditRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(StrategyCatalogAuditRunner.class);
 
     private static final BigDecimal INITIAL_BALANCE = new BigDecimal("1000.00");
     private static final int FEES_BPS = 10;
@@ -112,13 +116,14 @@ public final class StrategyCatalogAuditRunner {
         BacktestValidator backtestValidator = new BacktestValidator();
 
         BacktestDataset dataset = datasetRepository.findById(AUDIT_DATASET_ID)
-            .orElseThrow(() -> new IllegalStateException("Missing audit dataset " + AUDIT_DATASET_ID));
-        if (!AUDIT_DATASET_CHECKSUM.equals(dataset.getChecksumSha256())) {
-            throw new IllegalStateException(
-                "Dataset " + AUDIT_DATASET_ID + " checksum mismatch. Expected " + AUDIT_DATASET_CHECKSUM
-                    + " but found " + dataset.getChecksumSha256()
-            );
-        }
+            .filter(d -> AUDIT_DATASET_CHECKSUM.equals(d.getChecksumSha256()))
+            .orElseGet(() -> {
+                logger.info("Audit dataset ID {} missing or checksum mismatch. Searching by checksum...", AUDIT_DATASET_ID);
+                return datasetRepository.findByChecksumSha256(AUDIT_DATASET_CHECKSUM)
+                    .orElseThrow(() -> new IllegalStateException(
+                        "Audit dataset not found by ID " + AUDIT_DATASET_ID + " or checksum " + AUDIT_DATASET_CHECKSUM
+                    ));
+            });
 
         EnumMap<BacktestAlgorithmType, StrategyAuditRecord> records = new EnumMap<>(BacktestAlgorithmType.class);
         for (AuditStrategySpec spec : STRATEGIES) {
