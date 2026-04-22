@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0019-remove-legacy-csv-columns
+      author: antigravity
+      comment: >
+        Remove the legacy CSV binary columns that were previously used as fallback storage.
+        All market data is now fully normalized into the relational market_data_candles store
+        (introduced in migration 0017). The csv_data column in backtest_datasets and the
+        staged_csv_data column in market_data_import_jobs are no longer referenced by any
+        production code path. Removing them eliminates multi-MB BYTEA blobs from the database.
+      changes:
+        - dropColumn:
+            tableName: backtest_datasets
+            columnName: csv_data
+        - dropColumn:
+            tableName: market_data_import_jobs
+            columnName: staged_csv_data

@@ -15,8 +15,6 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -94,10 +92,6 @@ public class MarketDataImportJob {
     @NotNull
     @Column(name = "imported_row_count", nullable = false)
     private Integer importedRowCount;
-
-    @JdbcTypeCode(SqlTypes.LONGVARBINARY)
-    @Column(name = "staged_csv_data")
-    private byte[] stagedCsvData;
 
     @Column(name = "dataset_id")
     private Long datasetId;
@@ -288,14 +282,6 @@ public class MarketDataImportJob {
 
     public void setImportedRowCount(Integer importedRowCount) {
         this.importedRowCount = importedRowCount;
-    }
-
-    public byte[] getStagedCsvData() {
-        return stagedCsvData;
-    }
-
-    public void setStagedCsvData(byte[] stagedCsvData) {
-        this.stagedCsvData = stagedCsvData;
     }
 
     public Long getDatasetId() {

@@ -1,5 +1,6 @@
 package com.algotrader.bot.service;
 
+import com.algotrader.bot.backtest.OHLCVData;
 import com.algotrader.bot.controller.BacktestDatasetDownloadResponse;
 import com.algotrader.bot.entity.BacktestDataset;
 import com.algotrader.bot.repository.MarketDataCandleRepository;
@@ -14,6 +15,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -74,26 +76,27 @@ class BacktestDatasetStorageServiceIntegrationTest {
     }
 
     @Test
-    void storeImportedDataset_generatesDownloadsFromNormalizedStoreWhenCompatibilityBlobBecomesStale() {
-        byte[] csvData = csv(
-            """
-                timestamp,symbol,open,high,low,close,volume
-                2025-01-01T00:00:00,ETH/USDT,200,201,199,200,20
-                2025-01-01T01:00:00,ETH/USDT,200,202,199,201,21
-                2025-01-01T02:00:00,ETH/USDT,201,203,200,202,22
-                """
+    void storeImportedDataset_generatesDownloadsFromNormalizedStore() {
+        List<OHLCVData> candles = List.of(
+            new OHLCVData(LocalDateTime.parse("2025-01-01T00:00:00"), "ETH/USDT",
+                new BigDecimal("200"), new BigDecimal("201"), new BigDecimal("199"), new BigDecimal("200"), new BigDecimal("20")),
+            new OHLCVData(LocalDateTime.parse("2025-01-01T01:00:00"), "ETH/USDT",
+                new BigDecimal("200"), new BigDecimal("202"), new BigDecimal("199"), new BigDecimal("201"), new BigDecimal("21")),
+            new OHLCVData(LocalDateTime.parse("2025-01-01T02:00:00"), "ETH/USDT",
+                new BigDecimal("201"), new BigDecimal("203"), new BigDecimal("200"), new BigDecimal("202"), new BigDecimal("22"))
         );
+        String checksum = BacktestDatasetStorageService.checksumFromCandles(candles);
 
         BacktestDataset dataset = backtestDatasetStorageService.storeImportedDataset(
             "Imported dataset",
             "provider-import.csv",
-            csvData,
+            candles,
+            checksum,
             "Test Provider"
         );
-        dataset.setCsvData("corrupted,compatibility,blob".getBytes());
 
         BacktestDatasetDownloadResponse downloadResponse = backtestDatasetStorageService.downloadDataset(dataset.getId());
-        List<MarketDataQueriedCandle> candles = marketDataQueryService.loadCandlesForDataset(
+        List<MarketDataQueriedCandle> queriedCandles = marketDataQueryService.loadCandlesForDataset(
             dataset.getId(),
             "1h",
             LocalDateTime.parse("2025-01-01T00:00:00"),
@@ -101,11 +104,10 @@ class BacktestDatasetStorageServiceIntegrationTest {
             Set.of("ETH/USDT")
         );
 
-        assertThat(new String(downloadResponse.csvData())).isEqualTo(new String(csvData));
         assertThat(downloadResponse.exportSource()).isEqualTo("NORMALIZED_EXPORT");
-        assertThat(candles).hasSize(3);
-        assertThat(candles).extracting(candle -> candle.provenance().sourceType()).containsOnly("IMPORT_JOB");
-        assertThat(candles).extracting(candle -> candle.provenance().datasetId()).containsOnly(dataset.getId());
+        assertThat(queriedCandles).hasSize(3);
+        assertThat(queriedCandles).extracting(candle -> candle.provenance().sourceType()).containsOnly("IMPORT_JOB");
+        assertThat(queriedCandles).extracting(candle -> candle.provenance().datasetId()).containsOnly(dataset.getId());
     }
 
     private byte[] csv(String body) {

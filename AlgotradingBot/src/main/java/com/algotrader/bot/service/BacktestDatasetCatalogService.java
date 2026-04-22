@@ -1,5 +1,6 @@
 package com.algotrader.bot.service;
 
+import com.algotrader.bot.backtest.OHLCVData;
 import com.algotrader.bot.controller.BacktestDatasetArchiveRequest;
 import com.algotrader.bot.controller.BacktestDatasetDownloadResponse;
 import com.algotrader.bot.controller.BacktestDatasetResponse;
@@ -40,8 +41,14 @@ public class BacktestDatasetCatalogService {
     }
 
     @Transactional
-    public BacktestDatasetResponse importDataset(String requestedName, String filename, byte[] csvData, String sourceDetails) {
-        BacktestDataset saved = backtestDatasetStorageService.storeImportedDataset(requestedName, filename, csvData, sourceDetails);
+    public BacktestDatasetResponse importDataset(String requestedName,
+                                                 String filename,
+                                                 List<OHLCVData> candles,
+                                                 String checksumSha256,
+                                                 String sourceDetails) {
+        BacktestDataset saved = backtestDatasetStorageService.storeImportedDataset(
+            requestedName, filename, candles, checksumSha256, sourceDetails
+        );
         operatorAuditService.recordSuccess(
             "BACKTEST_DATASET_IMPORTED",
             "test",
@@ -51,6 +58,7 @@ public class BacktestDatasetCatalogService {
         );
         return backtestDatasetLifecycleService.describeDataset(saved);
     }
+
 
     @Transactional(readOnly = true)
     public List<BacktestDatasetResponse> listDatasets() {

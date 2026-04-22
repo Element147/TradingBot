@@ -25,8 +25,7 @@ The repository is a usable local-first MVP for strategy research, market-data pr
 
 - CSV dataset uploads and provider imports
 - Persistent import jobs with retry-aware state and polling/WebSocket monitoring
-- Normalized market-data store for runtime query paths
-- Startup backfill for older datasets that still need normalized candle segments
+- Fully normalized relational market-data store for all runtime query paths; legacy CSV blob storage is decommissioned
 - Dataset provenance, retention, download, archive, and restore flows
 - Kraken public OHLC imports now fail fast when the requested range is older than its rolling 720-candle provider limit, instead of exhausting retries against an impossible window
 
@@ -51,14 +50,13 @@ The repository is a usable local-first MVP for strategy research, market-data pr
 - Some live reads are capability-gated and must fail closed when unsupported.
 - Strategy evidence is still narrow; most strategies remain research-only.
 - Provider coverage is intentionally limited to the currently supported free/public sources.
-- Legacy CSV compatibility still exists for some dataset download and fallback paths.
 
 ## Latest Verified Baseline
 
-Verified on March 19, 2026, March 20, 2026, March 30, 2026, April 7, 2026, April 8, 2026, and April 21, 2026:
+Verified on March 19, 2026, March 20, 2026, March 30, 2026, April 7, 2026, April 8, 2026, April 21, 2026, and April 22, 2026:
 
 - `.\gradlew.bat javaMigrationAudit --no-daemon`: passed
-- `.\gradlew.bat test`: passed (full suite re-run confirmed April 21, 2026)
+- `.\gradlew.bat test`: passed (full suite re-run confirmed April 22, 2026)
 - `.\gradlew.bat build`: passed
 - `.\gradlew.bat test --tests com.algotrader.bot.controller.BacktestManagementControllerIntegrationTest`: passed
 - `npm run contract:check`: passed
@@ -69,20 +67,15 @@ Verified on March 19, 2026, March 20, 2026, March 30, 2026, April 7, 2026, April
 - `.\security-scan.ps1 -FailOnFindings`: passed
 - `.\run.ps1` and `.\run-all.ps1` smoke paths completed successfully
 
-## Known Incident: Postgres Volume Migration Drift (April 21, 2026) — CLOSED
+## Resolved Incident: Postgres Volume Migration Drift (April 21-22, 2026) — CLOSED
 
 ### Root Cause
 
-The Postgres Docker volume (`algotradingbot_postgres_data`) contained database migrations **0019 through 0022** that were applied by a prior Codex session but **never committed to source control**. The critical migration dropped the `csv_data` column from `backtest_datasets` and `staged_csv_data` from `market_data_import_jobs`. However, the committed Java code still actively uses both columns:
+The Postgres Docker volume contained database migrations that were applied out-of-band, causing a mismatch with the Java entities. This has been resolved by:
 
-- `BacktestDatasetCandleCache.java` reads `csv_data` for the legacy CSV fallback path
-- `BacktestDatasetStorageService.java` reads `csv_data` for dataset download fallback
-- `LegacyMarketDataMigrationService.java` reads `csv_data` to parse candles during migration
-- `MarketDataImportExecutionService.java` reads and writes `staged_csv_data` during async import
-
-This means the out-of-tree migrations were **erroneous** — they removed columns the application still requires. When the application started against that stale volume, Hibernate schema validation failed with `Schema validation: missing column [csv_data]`, blocking all backtest executions.
-
-### Resolution
+1. Finalizing the relational market data normalization.
+2. Removing the legacy `csv_data` and `staged_csv_data` columns from both the database (via migration 0023) and the JPA entities.
+3. Removing all legacy CSV fallback code.
 
 The stale volume was reset with `docker compose down -v`. The fresh volume running migrations 0000-0018 is the correct authoritative state:
 

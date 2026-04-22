@@ -147,7 +147,6 @@ class MarketDataRepositoryIntegrationTest {
         BacktestDataset dataset = new BacktestDataset();
         dataset.setName(name);
         dataset.setOriginalFilename(name.replace(' ', '-').toLowerCase() + ".csv");
-        dataset.setCsvData("timestamp,symbol,open,high,low,close,volume".getBytes());
         dataset.setRowCount(3);
         dataset.setSymbolsCsv("BTC/USDT");
         dataset.setDataStart(LocalDateTime.parse("2025-01-01T00:00:00"));

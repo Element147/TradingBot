@@ -6,14 +6,11 @@ import com.algotrader.bot.entity.MarketDataCandle;
 import com.algotrader.bot.entity.MarketDataCandleId;
 import com.algotrader.bot.entity.MarketDataCandleSegment;
 import com.algotrader.bot.entity.MarketDataSeries;
-import com.algotrader.bot.repository.BacktestDatasetRepository;
 import com.algotrader.bot.repository.MarketDataCandleRepository;
 import com.algotrader.bot.repository.MarketDataCandleSegmentRepository;
 import com.algotrader.bot.repository.MarketDataSeriesRepository;
-import com.algotrader.bot.service.HistoricalDataCsvParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -30,7 +27,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -44,154 +40,30 @@ public class LegacyMarketDataMigrationService {
     private static final Pattern PAIR_SPLITTER = Pattern.compile("[/_:-]");
     private static final List<String> QUOTE_ASSET_SUFFIXES = List.of("USDT", "USDC", "USD", "BTC", "ETH", "EUR");
 
-    private final BacktestDatasetRepository backtestDatasetRepository;
     private final MarketDataSeriesRepository marketDataSeriesRepository;
     private final MarketDataCandleSegmentRepository marketDataCandleSegmentRepository;
     private final MarketDataCandleRepository marketDataCandleRepository;
-    private final HistoricalDataCsvParser historicalDataCsvParser;
     private final TransactionTemplate transactionTemplate;
 
-    public LegacyMarketDataMigrationService(BacktestDatasetRepository backtestDatasetRepository,
-                                            MarketDataSeriesRepository marketDataSeriesRepository,
+    public LegacyMarketDataMigrationService(MarketDataSeriesRepository marketDataSeriesRepository,
                                             MarketDataCandleSegmentRepository marketDataCandleSegmentRepository,
                                             MarketDataCandleRepository marketDataCandleRepository,
-                                            HistoricalDataCsvParser historicalDataCsvParser,
                                             PlatformTransactionManager transactionManager) {
-        this.backtestDatasetRepository = backtestDatasetRepository;
         this.marketDataSeriesRepository = marketDataSeriesRepository;
         this.marketDataCandleSegmentRepository = marketDataCandleSegmentRepository;
         this.marketDataCandleRepository = marketDataCandleRepository;
-        this.historicalDataCsvParser = historicalDataCsvParser;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    public LegacyMarketDataMigrationSummary migrate(LegacyMarketDataMigrationRequest request) {
-        List<BacktestDataset> datasets = selectDatasets(request);
-        List<LegacyMarketDataMigrationDatasetResult> results = new ArrayList<>(datasets.size());
-        for (BacktestDataset dataset : datasets) {
-            LegacyMarketDataMigrationDatasetResult result;
-            try {
-                result = request.dryRun()
-                    ? inspectDataset(dataset)
-                    : Objects.requireNonNull(transactionTemplate.execute(status -> migrateDataset(dataset)));
-            } catch (Exception exception) {
-                logger.error("legacy_market_data_migration dataset_id={} status=FAILED message={}", dataset.getId(), exception.getMessage(), exception);
-                result = new LegacyMarketDataMigrationDatasetResult(
-                    dataset.getId(),
-                    dataset.getName(),
-                    dataset.getChecksumSha256(),
-                    dataset.getRowCount(),
-                    dataset.getSymbolsCsv(),
-                    0,
-                    0,
-                    0,
-                    0,
-                    dataset.getRowCount() == null ? 0 : dataset.getRowCount(),
-                    "FAILED",
-                    exception.getMessage() == null ? "Migration failed." : exception.getMessage()
-                );
-            }
-            logger.info(result.toLogLine());
-            results.add(result);
-        }
-
-        LegacyMarketDataMigrationSummary summary = new LegacyMarketDataMigrationSummary(request.dryRun(), results);
-        logger.info(summary.renderReport());
-        return summary;
-    }
-
-    public LegacyMarketDataReconciliationSummary reconcile(LegacyMarketDataMigrationRequest request) {
-        List<BacktestDataset> datasets = selectDatasets(request);
-        List<LegacyMarketDataReconciliationDatasetResult> results = new ArrayList<>(datasets.size());
-        for (BacktestDataset dataset : datasets) {
-            LegacyMarketDataReconciliationDatasetResult result;
-            try {
-                result = reconcileDataset(dataset);
-            } catch (Exception exception) {
-                logger.error("legacy_market_data_reconciliation dataset_id={} status=FAILED message={}", dataset.getId(), exception.getMessage(), exception);
-                result = failedReconciliationResult(
-                    dataset,
-                    List.of(exception.getMessage() == null ? "Reconciliation failed." : exception.getMessage())
-                );
-            }
-            logger.info(result.toLogLine());
-            results.add(result);
-        }
-
-        LegacyMarketDataReconciliationSummary summary = new LegacyMarketDataReconciliationSummary(results);
-        logger.info(summary.renderReport());
-        return summary;
-    }
-
     public void ingestDataset(BacktestDataset dataset,
+                              List<OHLCVData> candles,
                               String sourceType,
                               String segmentNotes,
                               String providerBatchReference) {
         transactionTemplate.executeWithoutResult(status -> {
-            List<SymbolMigrationPlan> plans = buildSymbolPlans(dataset);
+            List<SymbolMigrationPlan> plans = buildSymbolPlans(candles);
             persistDataset(dataset, plans, sourceType, segmentNotes, providerBatchReference);
         });
-    }
-
-    private LegacyMarketDataMigrationDatasetResult inspectDataset(BacktestDataset dataset) {
-        List<SymbolMigrationPlan> plans = buildSymbolPlans(dataset);
-        int skippedSegments = 0;
-        for (SymbolMigrationPlan plan : plans) {
-            MarketDataSeries existingSeries = findExistingSeries(plan.descriptor());
-            if (existingSeries != null && marketDataCandleSegmentRepository.findByDatasetSeriesTimeframeAndChecksum(
-                dataset.getId(),
-                existingSeries.getId(),
-                plan.timeframe().id(),
-                plan.segmentChecksumSha256()
-            ).isPresent()) {
-                skippedSegments++;
-            }
-        }
-
-        return new LegacyMarketDataMigrationDatasetResult(
-            dataset.getId(),
-            dataset.getName(),
-            dataset.getChecksumSha256(),
-            dataset.getRowCount(),
-            dataset.getSymbolsCsv(),
-            plans.size(),
-            Math.max(0, plans.size() - skippedSegments),
-            plans.stream().mapToInt(plan -> plan.candles().size()).sum(),
-            0,
-            0,
-            "DRY_RUN_READY",
-            "Dry run inspected " + plans.size() + " symbol or timeframe groups."
-        );
-    }
-
-    private LegacyMarketDataMigrationDatasetResult migrateDataset(BacktestDataset dataset) {
-        List<SymbolMigrationPlan> plans = buildSymbolPlans(dataset);
-        DatasetWriteSummary writeSummary = persistDataset(
-            dataset,
-            plans,
-            "LEGACY_DATASET",
-            "Migrated from legacy dataset CSV storage.",
-            dataset.getChecksumSha256()
-        );
-
-        String status = writeSummary.migratedSegmentCount() > 0 ? "MIGRATED" : "SKIPPED_ALREADY_MIGRATED";
-        String message = writeSummary.migratedSegmentCount() > 0
-            ? "Migrated " + writeSummary.migratedSegmentCount() + " segments from legacy CSV."
-            : "All matching legacy segments were already present or covered by identical candles.";
-        return new LegacyMarketDataMigrationDatasetResult(
-            dataset.getId(),
-            dataset.getName(),
-            dataset.getChecksumSha256(),
-            dataset.getRowCount(),
-            dataset.getSymbolsCsv(),
-            plans.size(),
-            writeSummary.migratedSegmentCount(),
-            writeSummary.insertedCandleCount(),
-            writeSummary.duplicateCandleCount(),
-            0,
-            status,
-            message
-        );
     }
 
     private DatasetWriteSummary persistDataset(BacktestDataset dataset,
@@ -276,226 +148,13 @@ public class LegacyMarketDataMigrationService {
         );
     }
 
-    private LegacyMarketDataReconciliationDatasetResult reconcileDataset(BacktestDataset dataset) {
-        List<SymbolMigrationPlan> plans = buildSymbolPlans(dataset);
-        List<MarketDataCandleSegment> datasetSegments = marketDataCandleSegmentRepository.findByDatasetIdWithSeries(dataset.getId());
-        Map<SeriesTimeframeKey, List<MarketDataCandleSegment>> actualSegmentsByKey = datasetSegments.stream()
-            .collect(Collectors.groupingBy(
-                segment -> new SeriesTimeframeKey(segment.getSeries().getId(), segment.getTimeframe()),
-                LinkedHashMap::new,
-                Collectors.toList()
-            ));
 
-        Set<Long> actualSeriesIds = datasetSegments.stream()
-            .map(segment -> segment.getSeries().getId())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<String> actualSymbols = datasetSegments.stream()
-            .map(segment -> segment.getSeries().getSymbolDisplay())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        List<String> discrepancies = new ArrayList<>();
-        List<String> expectedDigests = new ArrayList<>(plans.size());
-        Set<SeriesTimeframeKey> expectedKeys = new LinkedHashSet<>(plans.size());
-        int expectedCandleCount = 0;
-        int actualCandleCount = 0;
-        LocalDateTime actualCoverageStart = null;
-        LocalDateTime actualCoverageEnd = null;
-
-        for (SymbolMigrationPlan plan : plans) {
-            expectedKeys.add(new SeriesTimeframeKey(plan.descriptor().identityKey(), plan.timeframe().id()));
-            expectedCandleCount += plan.candles().size();
-            expectedDigests.add(planDigest(
-                plan.symbolDisplay(),
-                plan.timeframe().id(),
-                plan.segmentChecksumSha256(),
-                plan.candles().size(),
-                plan.coverageStart(),
-                plan.coverageEnd()
-            ));
-
-            MarketDataSeries series = findExistingSeries(plan.descriptor());
-            if (series == null) {
-                discrepancies.add("Missing normalized series for symbol " + plan.symbolDisplay()
-                    + " (provider=" + plan.descriptor().providerId()
-                    + ", exchange=" + plan.descriptor().exchangeId()
-                    + ", assetClass=" + plan.descriptor().assetClass() + ").");
-                continue;
-            }
-
-            SeriesTimeframeKey actualKey = new SeriesTimeframeKey(series.getId(), plan.timeframe().id());
-            List<MarketDataCandleSegment> matchingSegments = actualSegmentsByKey.getOrDefault(actualKey, List.of());
-            if (matchingSegments.isEmpty()) {
-                discrepancies.add("Missing normalized segment for dataset " + dataset.getId()
-                    + ", symbol " + plan.symbolDisplay()
-                    + ", timeframe " + plan.timeframe().id() + ".");
-                continue;
-            }
-
-            List<MarketDataCandle> actualCandles = marketDataCandleRepository.findDatasetSeriesCandlesInRange(
-                dataset.getId(),
-                series.getId(),
-                plan.timeframe().id(),
-                plan.coverageStart(),
-                plan.coverageEnd()
-            );
-            if (actualCandles.isEmpty()) {
-                discrepancies.add("Normalized store has segment metadata but no candles for dataset " + dataset.getId()
-                    + ", symbol " + plan.symbolDisplay()
-                    + ", timeframe " + plan.timeframe().id() + ".");
-                continue;
-            }
-
-            actualCandleCount += actualCandles.size();
-            LocalDateTime actualStart = actualCandles.getFirst().getId().getBucketStart();
-            LocalDateTime actualEnd = actualCandles.getLast().getId().getBucketStart();
-            if (actualCoverageStart == null || actualStart.isBefore(actualCoverageStart)) {
-                actualCoverageStart = actualStart;
-            }
-            if (actualCoverageEnd == null || actualEnd.isAfter(actualCoverageEnd)) {
-                actualCoverageEnd = actualEnd;
-            }
-
-            if (actualCandles.size() != plan.candles().size()) {
-                discrepancies.add("Row count mismatch for dataset " + dataset.getId()
-                    + ", symbol " + plan.symbolDisplay()
-                    + ", timeframe " + plan.timeframe().id()
-                    + ": expected " + plan.candles().size()
-                    + " but found " + actualCandles.size() + " normalized candles.");
-            }
-            if (!actualStart.equals(plan.coverageStart())) {
-                discrepancies.add("Coverage start mismatch for dataset " + dataset.getId()
-                    + ", symbol " + plan.symbolDisplay()
-                    + ", timeframe " + plan.timeframe().id()
-                    + ": expected " + plan.coverageStart()
-                    + " but found " + actualStart + ".");
-            }
-            if (!actualEnd.equals(plan.coverageEnd())) {
-                discrepancies.add("Coverage end mismatch for dataset " + dataset.getId()
-                    + ", symbol " + plan.symbolDisplay()
-                    + ", timeframe " + plan.timeframe().id()
-                    + ": expected " + plan.coverageEnd()
-                    + " but found " + actualEnd + ".");
-            }
-
-            String actualChecksum = checksumForMarketDataCandles(actualCandles);
-            if (!actualChecksum.equals(plan.segmentChecksumSha256())) {
-                discrepancies.add("Checksum mismatch for dataset " + dataset.getId()
-                    + ", symbol " + plan.symbolDisplay()
-                    + ", timeframe " + plan.timeframe().id()
-                    + ": expected " + plan.segmentChecksumSha256()
-                    + " but found " + actualChecksum + ".");
-            }
-            boolean matchingSegmentChecksum = matchingSegments.stream()
-                .map(MarketDataCandleSegment::getChecksumSha256)
-                .anyMatch(plan.segmentChecksumSha256()::equals);
-            if (!matchingSegmentChecksum) {
-                String segmentChecksums = matchingSegments.stream()
-                    .map(MarketDataCandleSegment::getChecksumSha256)
-                    .collect(Collectors.joining(","));
-                discrepancies.add("Segment checksum mismatch for dataset " + dataset.getId()
-                    + ", symbol " + plan.symbolDisplay()
-                    + ", timeframe " + plan.timeframe().id()
-                    + ": expected segment checksum " + plan.segmentChecksumSha256()
-                    + " but found [" + segmentChecksums + "].");
-            }
-        }
-
-        Set<String> expectedSymbols = plans.stream()
-            .map(SymbolMigrationPlan::symbolDisplay)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (!actualSymbols.equals(expectedSymbols)) {
-            discrepancies.add("Symbol set mismatch for dataset " + dataset.getId()
-                + ": expected " + String.join(",", expectedSymbols)
-                + " but found " + String.join(",", actualSymbols) + ".");
-        }
-
-        Set<SeriesTimeframeKey> actualIdentityKeys = datasetSegments.stream()
-            .map(segment -> new SeriesTimeframeKey(marketDataSeriesIdentityKey(segment.getSeries()), segment.getTimeframe()))
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<SeriesTimeframeKey> unexpectedKeys = new LinkedHashSet<>(actualIdentityKeys);
-        unexpectedKeys.removeAll(expectedKeys);
-        if (!unexpectedKeys.isEmpty()) {
-            discrepancies.add("Unexpected normalized segment identities for dataset " + dataset.getId()
-                + ": " + unexpectedKeys.stream().map(SeriesTimeframeKey::render).collect(Collectors.joining(",")) + ".");
-        }
-
-        String expectedCoverageStart = plans.stream()
-            .map(SymbolMigrationPlan::coverageStart)
-            .min(LocalDateTime::compareTo)
-            .map(LocalDateTime::toString)
-            .orElse(null);
-        String expectedCoverageEnd = plans.stream()
-            .map(SymbolMigrationPlan::coverageEnd)
-            .max(LocalDateTime::compareTo)
-            .map(LocalDateTime::toString)
-            .orElse(null);
-        String actualCoverageStartText = actualCoverageStart == null ? null : actualCoverageStart.toString();
-        String actualCoverageEndText = actualCoverageEnd == null ? null : actualCoverageEnd.toString();
-        if (!Objects.equals(expectedCoverageStart, actualCoverageStartText)) {
-            discrepancies.add("Dataset coverage start mismatch for dataset " + dataset.getId()
-                + ": expected " + expectedCoverageStart + " but found " + actualCoverageStartText + ".");
-        }
-        if (!Objects.equals(expectedCoverageEnd, actualCoverageEndText)) {
-            discrepancies.add("Dataset coverage end mismatch for dataset " + dataset.getId()
-                + ": expected " + expectedCoverageEnd + " but found " + actualCoverageEndText + ".");
-        }
-        if (expectedCandleCount != actualCandleCount) {
-            discrepancies.add("Dataset row count mismatch for dataset " + dataset.getId()
-                + ": expected " + expectedCandleCount + " but found " + actualCandleCount + " normalized candles.");
-        }
-
-        String expectedHashSummary = checksumForStrings(expectedDigests);
-        String actualHashSummary = checksumForStrings(buildActualDigests(datasetSegments));
-        if (!expectedHashSummary.equals(actualHashSummary)) {
-            discrepancies.add("Derived hash summary mismatch for dataset " + dataset.getId()
-                + ": expected " + expectedHashSummary + " but found " + actualHashSummary + ".");
-        }
-
-        String status = discrepancies.isEmpty() ? "RECONCILED" : "FAILED";
-        String rollbackAction = discrepancies.isEmpty()
-            ? "No rollback required."
-            : "Keep this dataset on the legacy CSV compatibility path, do not retire csv_data, and rerun migration after resolving the reported discrepancies.";
-        return new LegacyMarketDataReconciliationDatasetResult(
-            dataset.getId(),
-            dataset.getName(),
-            dataset.getChecksumSha256(),
-            dataset.getRowCount(),
-            dataset.getSymbolsCsv(),
-            plans.size(),
-            actualSeriesIds.size(),
-            expectedCandleCount,
-            actualCandleCount,
-            expectedCoverageStart,
-            actualCoverageStartText,
-            expectedCoverageEnd,
-            actualCoverageEndText,
-            expectedHashSummary,
-            actualHashSummary,
-            status,
-            rollbackAction,
-            discrepancies
-        );
-    }
-
-    private List<BacktestDataset> selectDatasets(LegacyMarketDataMigrationRequest request) {
-        List<BacktestDataset> datasets = backtestDatasetRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
-        if (!request.datasetIds().isEmpty()) {
-            Set<Long> requestedIds = request.datasetIds();
-            datasets = datasets.stream()
-                .filter(dataset -> requestedIds.contains(dataset.getId()))
-                .toList();
-        }
-        if (request.limit() != null && request.limit() > 0 && datasets.size() > request.limit()) {
-            return datasets.subList(0, request.limit());
-        }
-        return datasets;
-    }
-
-    private List<SymbolMigrationPlan> buildSymbolPlans(BacktestDataset dataset) {
-        List<OHLCVData> candles = historicalDataCsvParser.parse(dataset.getCsvData()).stream()
+    private List<SymbolMigrationPlan> buildSymbolPlans(List<OHLCVData> candles) {
+        List<OHLCVData> sortedCandles = candles.stream()
             .sorted(Comparator.comparing(OHLCVData::getSymbol).thenComparing(OHLCVData::getTimestamp))
             .toList();
-        Map<String, List<OHLCVData>> candlesBySymbol = candles.stream()
+        Map<String, List<OHLCVData>> candlesBySymbol = sortedCandles.stream()
             .collect(Collectors.groupingBy(
                 candle -> candle.getSymbol().trim(),
                 LinkedHashMap::new,
@@ -712,28 +371,7 @@ public class LegacyMarketDataMigrationService {
         return symbol + "|" + timeframe + "|" + rowCount + "|" + coverageStart + "|" + coverageEnd + "|" + checksum;
     }
 
-    private LegacyMarketDataReconciliationDatasetResult failedReconciliationResult(BacktestDataset dataset, List<String> discrepancies) {
-        return new LegacyMarketDataReconciliationDatasetResult(
-            dataset.getId(),
-            dataset.getName(),
-            dataset.getChecksumSha256(),
-            dataset.getRowCount(),
-            dataset.getSymbolsCsv(),
-            0,
-            0,
-            dataset.getRowCount(),
-            0,
-            dataset.getDataStart() == null ? null : dataset.getDataStart().toString(),
-            null,
-            dataset.getDataEnd() == null ? null : dataset.getDataEnd().toString(),
-            null,
-            checksumForStrings(List.of(dataset.getChecksumSha256(), String.valueOf(dataset.getRowCount()), dataset.getSymbolsCsv())),
-            "",
-            "FAILED",
-            "Keep this dataset on the legacy CSV compatibility path, do not retire csv_data, and rerun migration after resolving the reported discrepancies.",
-            discrepancies
-        );
-    }
+
 
     private record SymbolMigrationPlan(LegacySeriesDescriptor descriptor,
                                        String symbolDisplay,

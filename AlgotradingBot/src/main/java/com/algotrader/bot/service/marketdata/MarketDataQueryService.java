@@ -1,13 +1,10 @@
 package com.algotrader.bot.service.marketdata;
 
 import com.algotrader.bot.backtest.OHLCVData;
-import com.algotrader.bot.entity.BacktestDataset;
 import com.algotrader.bot.entity.MarketDataCandle;
 import com.algotrader.bot.entity.MarketDataCandleSegment;
 import com.algotrader.bot.entity.MarketDataSeries;
 import com.algotrader.bot.repository.MarketDataCandleRepository;
-import com.algotrader.bot.service.BacktestDatasetCandleCache;
-import com.algotrader.bot.service.BacktestDatasetStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -32,19 +29,13 @@ public class MarketDataQueryService {
     private static final long SLOW_QUERY_THRESHOLD_MILLIS = 500L;
 
     private final MarketDataCandleRepository marketDataCandleRepository;
-    private final BacktestDatasetStorageService backtestDatasetStorageService;
-    private final BacktestDatasetCandleCache backtestDatasetCandleCache;
     private final MarketDataResampler marketDataResampler;
     private final MarketDataQueryMetrics marketDataQueryMetrics;
 
     public MarketDataQueryService(MarketDataCandleRepository marketDataCandleRepository,
-                                  BacktestDatasetStorageService backtestDatasetStorageService,
-                                  BacktestDatasetCandleCache backtestDatasetCandleCache,
                                   MarketDataResampler marketDataResampler,
                                   MarketDataQueryMetrics marketDataQueryMetrics) {
         this.marketDataCandleRepository = marketDataCandleRepository;
-        this.backtestDatasetStorageService = backtestDatasetStorageService;
-        this.backtestDatasetCandleCache = backtestDatasetCandleCache;
         this.marketDataResampler = marketDataResampler;
         this.marketDataQueryMetrics = marketDataQueryMetrics;
     }
@@ -159,22 +150,15 @@ public class MarketDataQueryService {
             return result;
         }
 
+        // All data is now normalized — return empty result with full gap list if no relational source was found.
         logger.info(
-            "market_data_query event=legacy_fallback dataset_id={} timeframe={} query_mode={} symbols={} window_start={} window_end={} reason=no_relational_source",
-            datasetId,
-            timeframe,
-            queryMode,
+            "market_data_query event=no_relational_data dataset_id={} timeframe={} query_mode={} symbols={} window_start={} window_end={}",
+            datasetId, timeframe, queryMode,
             normalizedSymbols.isEmpty() ? "<all>" : normalizedSymbols,
-            windowStart,
-            windowEnd
+            windowStart, windowEnd
         );
-        List<MarketDataQueriedCandle> legacyCandles = loadLegacyCandles(datasetId, timeframe, windowStart, windowEnd, normalizedSymbols);
-        MarketDataQueryResult result = new MarketDataQueryResult(
-            legacyCandles,
-            buildGaps(legacyCandles, timeframe, windowStart, windowEnd, normalizedSymbols),
-            timeframe,
-            queryMode
-        );
+        List<MarketDataQueryGap> emptyGaps = buildGaps(List.of(), timeframe, windowStart, windowEnd, normalizedSymbols);
+        MarketDataQueryResult result = new MarketDataQueryResult(List.of(), emptyGaps, timeframe, queryMode);
         recordQueryObservation(
             "dataset",
             "dataset_id=" + datasetId,
@@ -184,7 +168,7 @@ public class MarketDataQueryService {
             windowEnd,
             normalizedSymbols,
             rollupSourceTimeframes,
-            true,
+            false,
             startedAt,
             result
         );
@@ -261,36 +245,6 @@ public class MarketDataQueryService {
         );
     }
 
-    private List<MarketDataQueriedCandle> loadLegacyCandles(Long datasetId,
-                                                            String timeframe,
-                                                            LocalDateTime windowStart,
-                                                            LocalDateTime windowEnd,
-                                                            Set<String> requestedSymbols) {
-        BacktestDataset dataset = backtestDatasetStorageService.getDataset(datasetId);
-        List<OHLCVData> filtered = backtestDatasetCandleCache.getOrParse(dataset).stream()
-            .filter(candle -> !candle.getTimestamp().isBefore(windowStart))
-            .filter(candle -> !candle.getTimestamp().isAfter(windowEnd))
-            .filter(candle -> requestedSymbols.isEmpty() || requestedSymbols.contains(candle.getSymbol().toUpperCase(Locale.ROOT)))
-            .sorted(Comparator.comparing(OHLCVData::getSymbol).thenComparing(OHLCVData::getTimestamp))
-            .toList();
-        if (filtered.isEmpty()) {
-            return List.of();
-        }
-
-        return marketDataResampler.resample(filtered, timeframe).stream()
-            .map(candle -> new MarketDataQueriedCandle(
-                candle.getTimestamp(),
-                candle.getSymbol(),
-                candle.getOpen(),
-                candle.getHigh(),
-                candle.getLow(),
-                candle.getClose(),
-                candle.getVolume(),
-                MarketDataCandleProvenance.legacy(datasetId, candle.getSymbol(), timeframe)
-            ))
-            .sorted(Comparator.comparing(MarketDataQueriedCandle::timestamp).thenComparing(MarketDataQueriedCandle::symbol))
-            .toList();
-    }
 
     private List<MarketDataQueriedCandle> mergeCandles(List<MarketDataQueriedCandle> exactCandles,
                                                        List<MarketDataQueriedCandle> rolledCandles) {

@@ -6,7 +6,12 @@ import com.algotrader.bot.entity.BacktestResult;
 import com.algotrader.bot.entity.BacktestTradeSeriesItem;
 import com.algotrader.bot.repository.BacktestDatasetRepository;
 import com.algotrader.bot.repository.BacktestResultRepository;
+import com.algotrader.bot.repository.MarketDataCandleRepository;
+import com.algotrader.bot.repository.MarketDataCandleSegmentRepository;
+import com.algotrader.bot.repository.MarketDataSeriesRepository;
 import com.algotrader.bot.security.JwtTokenProvider;
+import com.algotrader.bot.service.BacktestDatasetStorageService;
+import com.algotrader.bot.service.HistoricalDataCsvParser;
 import com.algotrader.bot.service.recovery.BacktestStartupRecoveryParticipant;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,10 +58,24 @@ class BacktestManagementControllerIntegrationTest {
     private BacktestDatasetRepository backtestDatasetRepository;
 
     @Autowired
+    private MarketDataCandleRepository marketDataCandleRepository;
+
+    @Autowired
+    private MarketDataCandleSegmentRepository marketDataCandleSegmentRepository;
+
+    @Autowired
+    private MarketDataSeriesRepository marketDataSeriesRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
     private BacktestStartupRecoveryParticipant backtestStartupRecoveryParticipant;
+
+    @Autowired
+    private BacktestDatasetStorageService backtestDatasetStorageService;
+
+    private final HistoricalDataCsvParser csvParser = new HistoricalDataCsvParser();
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
@@ -70,12 +89,12 @@ class BacktestManagementControllerIntegrationTest {
     void setUp() {
         authToken = jwtTokenProvider.generateToken("testuser", "ROLE_USER");
         backtestResultRepository.deleteAll();
+        marketDataCandleRepository.deleteAll();
+        marketDataCandleSegmentRepository.deleteAll();
         backtestDatasetRepository.deleteAll();
+        marketDataSeriesRepository.deleteAll();
 
-        BacktestDataset dataset = new BacktestDataset();
-        dataset.setName("sample-btc");
-        dataset.setOriginalFilename("sample-btc.csv");
-        dataset.setCsvData((
+        byte[] btcData = (
             "timestamp,symbol,open,high,low,close,volume\n" +
             "2025-01-01T00:00:00,BTC/USDT,100,101,99,100,1\n" +
             "2025-01-01T01:00:00,BTC/USDT,100,102,99,101,1\n" +
@@ -101,32 +120,31 @@ class BacktestManagementControllerIntegrationTest {
             "2025-01-01T21:00:00,BTC/USDT,120,122,119,121,1\n" +
             "2025-01-01T22:00:00,BTC/USDT,121,123,120,122,1\n" +
             "2025-01-01T23:00:00,BTC/USDT,122,124,121,123,1\n"
-        ).getBytes());
-        dataset.setRowCount(24);
-        dataset.setSymbolsCsv("BTC/USDT");
-        dataset.setDataStart(LocalDateTime.parse("2025-01-01T00:00:00"));
-        dataset.setDataEnd(LocalDateTime.parse("2025-01-01T23:00:00"));
-        dataset.setChecksumSha256("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        dataset.setSchemaVersion("ohlcv-v1");
-        datasetId = backtestDatasetRepository.save(dataset).getId();
+        ).getBytes();
+        
+        BacktestDataset dataset = backtestDatasetStorageService.storeImportedDataset(
+            "sample-btc",
+            "sample-btc.csv",
+            csvParser.parse(btcData),
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "Setup"
+        );
+        datasetId = dataset.getId();
 
-        BacktestDataset universeDataset = new BacktestDataset();
-        universeDataset.setName("multi-asset-universe");
-        universeDataset.setOriginalFilename("multi-asset.csv");
-        universeDataset.setCsvData((
+        byte[] multiData = (
             "timestamp,symbol,open,high,low,close,volume\n" +
             "2025-01-01T00:00:00,BTC/USDT,100,101,99,100,1\n" +
-            "2025-01-01T01:00:00,BTC/USDT,101,102,100,101,1\n" +
-            "2025-01-01T02:00:00,BTC/USDT,102,103,101,102,1\n" +
-            "2025-01-01T03:00:00,BTC/USDT,103,104,102,103,1\n" +
-            "2025-01-01T04:00:00,BTC/USDT,104,105,103,104,1\n" +
-            "2025-01-01T05:00:00,BTC/USDT,105,106,104,105,1\n" +
-            "2025-01-01T06:00:00,BTC/USDT,106,107,105,106,1\n" +
-            "2025-01-01T07:00:00,BTC/USDT,107,108,106,107,1\n" +
-            "2025-01-01T08:00:00,BTC/USDT,108,109,107,108,1\n" +
-            "2025-01-01T09:00:00,BTC/USDT,109,110,108,109,1\n" +
-            "2025-01-01T10:00:00,BTC/USDT,110,111,109,110,1\n" +
-            "2025-01-01T11:00:00,BTC/USDT,111,112,110,111,1\n" +
+            "2025-01-01T01:00:00,BTC/USDT,100,102,99,101,1\n" +
+            "2025-01-01T02:00:00,BTC/USDT,101,103,100,102,1\n" +
+            "2025-01-01T03:00:00,BTC/USDT,102,104,101,103,1\n" +
+            "2025-01-01T04:00:00,BTC/USDT,103,105,102,104,1\n" +
+            "2025-01-01T05:00:00,BTC/USDT,104,106,103,105,1\n" +
+            "2025-01-01T06:00:00,BTC/USDT,105,107,104,106,1\n" +
+            "2025-01-01T07:00:00,BTC/USDT,106,108,105,107,1\n" +
+            "2025-01-01T08:00:00,BTC/USDT,107,109,106,108,1\n" +
+            "2025-01-01T09:00:00,BTC/USDT,108,110,107,109,1\n" +
+            "2025-01-01T10:00:00,BTC/USDT,109,111,108,110,1\n" +
+            "2025-01-01T11:00:00,BTC/USDT,110,112,109,111,1\n" +
             "2025-01-01T12:00:00,ETH/USDT,200,201,199,200,1\n" +
             "2025-01-01T13:00:00,ETH/USDT,201,202,200,201,1\n" +
             "2025-01-01T14:00:00,ETH/USDT,202,203,201,202,1\n" +
@@ -139,14 +157,15 @@ class BacktestManagementControllerIntegrationTest {
             "2025-01-01T21:00:00,ETH/USDT,209,210,208,209,1\n" +
             "2025-01-01T22:00:00,ETH/USDT,210,211,209,210,1\n" +
             "2025-01-01T23:00:00,ETH/USDT,211,212,210,211,1\n"
-        ).getBytes());
-        universeDataset.setRowCount(24);
-        universeDataset.setSymbolsCsv("BTC/USDT,ETH/USDT");
-        universeDataset.setDataStart(LocalDateTime.parse("2025-01-01T00:00:00"));
-        universeDataset.setDataEnd(LocalDateTime.parse("2025-01-01T23:00:00"));
-        universeDataset.setChecksumSha256("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-        universeDataset.setSchemaVersion("ohlcv-v1");
-        backtestDatasetRepository.save(universeDataset);
+        ).getBytes();
+        
+        backtestDatasetStorageService.storeImportedDataset(
+            "multi-asset-universe",
+            "multi-asset.csv",
+            csvParser.parse(multiData),
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "Setup"
+        );
 
         BacktestResult result = new BacktestResult(
             "BOLLINGER_BANDS",
@@ -658,7 +677,7 @@ class BacktestManagementControllerIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(header().exists("X-Dataset-Checksum-Sha256"))
             .andExpect(header().string("X-Dataset-Schema-Version", "ohlcv-v1"))
-            .andExpect(header().string("X-Dataset-Download-Source", "LEGACY_CSV_COMPATIBILITY"))
+            .andExpect(header().string("X-Dataset-Download-Source", "NORMALIZED_EXPORT"))
             .andExpect(content().string(containsString("timestamp,symbol,open,high,low,close,volume")));
     }
 

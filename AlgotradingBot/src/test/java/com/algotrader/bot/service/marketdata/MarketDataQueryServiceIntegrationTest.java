@@ -87,22 +87,11 @@ class MarketDataQueryServiceIntegrationTest {
     }
 
     @Test
-    void loadCandlesForDataset_fallsBackToLegacyCsvForUnmigratedDataset() {
-        byte[] csvData = """
-            timestamp,symbol,open,high,low,close,volume
-            2025-01-01T00:00:00,BTC/USDT,100,101,99,100,10
-            2025-01-01T01:00:00,BTC/USDT,100,102,99,101,11
-            2025-01-01T02:00:00,BTC/USDT,101,103,100,102,12
-            """.getBytes();
-        BacktestDataset dataset = backtestDatasetRepository.saveAndFlush(dataset("Legacy dataset", csvData));
-        double legacyFallbacksBefore = counterValue(
-            "algotrading.market_data.query.legacy_fallbacks",
-            "scope", "dataset",
-            "query_mode", "best_available",
-            "requested_timeframe", "1h",
-            "result_source", "legacy_csv"
-        );
-        double cacheMissesBefore = gaugeValue("algotrading.backtests.dataset_cache.misses");
+    void loadCandlesForDataset_returnsEmptyResultForDatasetWithNoRelationalData() {
+        BacktestDataset dataset = backtestDatasetRepository.saveAndFlush(dataset(
+            "No-data dataset",
+            "placeholder".getBytes()
+        ));
 
         List<MarketDataQueriedCandle> candles = marketDataQueryService.loadCandlesForDataset(
             dataset.getId(),
@@ -112,17 +101,8 @@ class MarketDataQueryServiceIntegrationTest {
             Set.of("BTC/USDT")
         );
 
-        assertThat(candles).hasSize(3);
-        assertThat(candles).extracting(candle -> candle.provenance().sourceType()).containsOnly("LEGACY_CSV");
-        assertThat(candles).extracting(candle -> candle.provenance().resolutionTier()).containsOnly("LEGACY_FALLBACK");
-        assertThat(counterValue(
-            "algotrading.market_data.query.legacy_fallbacks",
-            "scope", "dataset",
-            "query_mode", "best_available",
-            "requested_timeframe", "1h",
-            "result_source", "legacy_csv"
-        )).isEqualTo(legacyFallbacksBefore + 1.0d);
-        assertThat(gaugeValue("algotrading.backtests.dataset_cache.misses")).isGreaterThanOrEqualTo(cacheMissesBefore + 1.0d);
+        // No relational data → normalized-only path returns empty list (no legacy fallback)
+        assertThat(candles).isEmpty();
     }
 
     @Test
@@ -308,11 +288,10 @@ class MarketDataQueryServiceIntegrationTest {
         assertThat(result.gaps()).isEmpty();
     }
 
-    private BacktestDataset dataset(String name, byte[] csvData) {
+    private BacktestDataset dataset(String name, byte[] csvDataIgnored) {
         BacktestDataset dataset = new BacktestDataset();
         dataset.setName(name);
         dataset.setOriginalFilename(name.replace(' ', '-').toLowerCase() + ".csv");
-        dataset.setCsvData(csvData);
         dataset.setRowCount(3);
         dataset.setSymbolsCsv("BTC/USDT");
         dataset.setDataStart(LocalDateTime.parse("2025-01-01T00:00:00"));
@@ -417,7 +396,7 @@ class MarketDataQueryServiceIntegrationTest {
     }
 
     private double gaugeValue(String name) {
-        Double value = meterRegistry.get(name).gauge().value();
-        return value == null ? 0.0d : value;
+        io.micrometer.core.instrument.Gauge gauge = meterRegistry.find(name).gauge();
+        return gauge == null ? 0.0d : (Double.isNaN(gauge.value()) ? 0.0d : gauge.value());
     }
 }

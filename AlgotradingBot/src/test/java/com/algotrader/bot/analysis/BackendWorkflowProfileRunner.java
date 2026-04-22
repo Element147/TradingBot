@@ -127,7 +127,13 @@ public final class BackendWorkflowProfileRunner {
         );
 
         BacktestExecutionService executionService = new BacktestExecutionService(
-            new BacktestDatasetStorageService(datasetRepository, new HistoricalDataCsvParser()),
+            new BacktestDatasetStorageService(
+                datasetRepository,
+                new HistoricalDataCsvParser(),
+                Mockito.mock(com.algotrader.bot.service.marketdata.LegacyMarketDataMigrationService.class),
+                Mockito.mock(com.algotrader.bot.repository.MarketDataCandleSegmentRepository.class),
+                Mockito.mock(com.algotrader.bot.repository.MarketDataCandleRepository.class)
+            ),
             mockSimulationEngine(),
             mockStrategyRegistry(),
             marketDataQueryService,

@@ -9,13 +9,13 @@ import com.algotrader.bot.repository.BacktestDatasetRepository;
 import com.algotrader.bot.repository.MarketDataCandleRepository;
 import com.algotrader.bot.repository.MarketDataCandleSegmentRepository;
 import com.algotrader.bot.service.marketdata.LegacyMarketDataMigrationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.charset.StandardCharsets;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
@@ -34,17 +34,13 @@ public class BacktestDatasetStorageService {
 
     private static final long MAX_UPLOAD_BYTES = 25L * 1024L * 1024L;
     private static final DateTimeFormatter CSV_TIMESTAMP_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final String CSV_HEADER = "timestamp,symbol,open,high,low,close,volume";
 
     private final BacktestDatasetRepository backtestDatasetRepository;
     private final HistoricalDataCsvParser historicalDataCsvParser;
     private final LegacyMarketDataMigrationService legacyMarketDataMigrationService;
     private final MarketDataCandleSegmentRepository marketDataCandleSegmentRepository;
     private final MarketDataCandleRepository marketDataCandleRepository;
-
-    public BacktestDatasetStorageService(BacktestDatasetRepository backtestDatasetRepository,
-                                         HistoricalDataCsvParser historicalDataCsvParser) {
-        this(backtestDatasetRepository, historicalDataCsvParser, null, null, null);
-    }
 
     @Autowired
     public BacktestDatasetStorageService(BacktestDatasetRepository backtestDatasetRepository,
@@ -65,25 +61,33 @@ public class BacktestDatasetStorageService {
         }
 
         String filename = file.getOriginalFilename() == null ? "dataset.csv" : file.getOriginalFilename();
-        byte[] csvData;
+        byte[] csvBytes;
         try {
-            csvData = file.getBytes();
+            csvBytes = file.getBytes();
         } catch (IOException exception) {
             throw new IllegalArgumentException("Unable to read uploaded file");
         }
 
-        return saveDataset(requestedName, filename, csvData, "UPLOAD", "Persisted from uploaded dataset CSV.");
+        validateDatasetSize(csvBytes.length);
+        List<OHLCVData> candles = historicalDataCsvParser.parse(csvBytes);
+        String checksum = sha256Hex(csvBytes);
+        return saveDataset(requestedName, filename, candles, checksum, "UPLOAD", "Persisted from uploaded dataset CSV.");
     }
 
-    public BacktestDataset storeImportedDataset(String requestedName, String filename, byte[] csvData) {
-        return storeImportedDataset(requestedName, filename, csvData, "Imported dataset.");
-    }
-
-    public BacktestDataset storeImportedDataset(String requestedName, String filename, byte[] csvData, String sourceDetails) {
+    /**
+     * Store an imported dataset from already-parsed OHLCV rows.
+     * The caller (e.g. MarketDataImportExecutionService) owns the parsed candles and
+     * must provide a deterministic checksum computed from the canonical serialization of those rows.
+     */
+    public BacktestDataset storeImportedDataset(String requestedName,
+                                                String filename,
+                                                List<OHLCVData> candles,
+                                                String checksumSha256,
+                                                String sourceDetails) {
         String detail = sourceDetails == null || sourceDetails.isBlank()
             ? "Imported dataset."
             : "Imported dataset from " + sourceDetails + ".";
-        return saveDataset(requestedName, filename, csvData, "IMPORT_JOB", detail);
+        return saveDataset(requestedName, filename, candles, checksumSha256, "IMPORT_JOB", detail);
     }
 
     public BacktestDataset getDataset(Long datasetId) {
@@ -94,12 +98,18 @@ public class BacktestDatasetStorageService {
     public BacktestDatasetDownloadResponse downloadDataset(Long datasetId) {
         BacktestDataset dataset = getDataset(datasetId);
         byte[] normalizedCsv = buildNormalizedCsv(dataset);
+        if (normalizedCsv == null) {
+            throw new IllegalStateException(
+                "Dataset " + datasetId + " has no normalized candle data in the relational store. "
+                    + "Re-upload the dataset to populate the normalized store."
+            );
+        }
         return new BacktestDatasetDownloadResponse(
             dataset.getOriginalFilename(),
             dataset.getChecksumSha256(),
             dataset.getSchemaVersion(),
-            normalizedCsv == null ? dataset.getCsvData() : normalizedCsv,
-            normalizedCsv == null ? "LEGACY_CSV_COMPATIBILITY" : "NORMALIZED_EXPORT"
+            normalizedCsv,
+            "NORMALIZED_EXPORT"
         );
     }
 
@@ -109,20 +119,34 @@ public class BacktestDatasetStorageService {
         }
     }
 
+    /**
+     * Compute a stable SHA-256 checksum from the canonical CSV serialization of the given candles.
+     * Use this when you have already-parsed rows and need to produce the checksum that would have
+     * been computed from the original bytes (e.g. for import jobs that accumulate candles in memory).
+     */
+    public static String checksumFromCandles(List<OHLCVData> candles) {
+        byte[] canonicalBytes = toCsvBytes(candles);
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(canonicalBytes));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 not available", exception);
+        }
+    }
+
     private BacktestDataset saveDataset(String requestedName,
                                         String filename,
-                                        byte[] csvData,
+                                        List<OHLCVData> candles,
+                                        String checksumSha256,
                                         String normalizedSourceType,
                                         String normalizedNotes) {
-        validateDatasetSize(csvData == null ? 0 : csvData.length);
+        if (candles == null || candles.isEmpty()) {
+            throw new IllegalArgumentException("CSV dataset does not contain any rows");
+        }
+
         String name = (requestedName == null || requestedName.isBlank()) ? filename : requestedName.trim();
         if (name.length() < 3 || name.length() > 100) {
             throw new IllegalArgumentException("Dataset name must be between 3 and 100 characters");
-        }
-
-        List<OHLCVData> candles = historicalDataCsvParser.parse(csvData);
-        if (candles.isEmpty()) {
-            throw new IllegalArgumentException("CSV dataset does not contain any rows");
         }
 
         Set<String> symbols = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
@@ -143,23 +167,22 @@ public class BacktestDatasetStorageService {
         BacktestDataset dataset = new BacktestDataset();
         dataset.setName(name);
         dataset.setOriginalFilename(filename);
-        dataset.setCsvData(csvData);
         dataset.setRowCount(candles.size());
         dataset.setSymbolsCsv(String.join(",", symbols));
         dataset.setDataStart(start);
         dataset.setDataEnd(end);
-        dataset.setChecksumSha256(sha256Hex(csvData));
+        dataset.setChecksumSha256(checksumSha256);
         dataset.setSchemaVersion("ohlcv-v1");
         dataset.setArchived(Boolean.FALSE);
         BacktestDataset saved = backtestDatasetRepository.save(dataset);
-        if (legacyMarketDataMigrationService != null) {
-            legacyMarketDataMigrationService.ingestDataset(
-                saved,
-                normalizedSourceType,
-                normalizedNotes,
-                saved.getChecksumSha256()
-            );
-        }
+
+        legacyMarketDataMigrationService.ingestDataset(
+            saved,
+            candles,
+            normalizedSourceType,
+            normalizedNotes,
+            checksumSha256
+        );
         return saved;
     }
 
@@ -232,7 +255,7 @@ public class BacktestDatasetStorageService {
             return null;
         }
 
-        StringBuilder csv = new StringBuilder("timestamp,symbol,open,high,low,close,volume");
+        StringBuilder csv = new StringBuilder(CSV_HEADER);
         for (MarketDataCandle candle : candles) {
             csv.append('\n')
                 .append(CSV_TIMESTAMP_FORMATTER.format(candle.getId().getBucketStart()))
@@ -250,6 +273,31 @@ public class BacktestDatasetStorageService {
                 .append(candle.getVolume().toPlainString());
         }
         return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Produce canonical CSV bytes from OHLCV rows — used to compute stable checksums for
+     * import jobs that accumulate candles in memory rather than buffering raw CSV bytes.
+     */
+    private static byte[] toCsvBytes(List<OHLCVData> candles) {
+        StringBuilder sb = new StringBuilder(CSV_HEADER);
+        for (OHLCVData candle : candles) {
+            sb.append('\n')
+                .append(CSV_TIMESTAMP_FORMATTER.format(candle.getTimestamp()))
+                .append(',')
+                .append(candle.getSymbol())
+                .append(',')
+                .append(candle.getOpen().toPlainString())
+                .append(',')
+                .append(candle.getHigh().toPlainString())
+                .append(',')
+                .append(candle.getLow().toPlainString())
+                .append(',')
+                .append(candle.getClose().toPlainString())
+                .append(',')
+                .append(candle.getVolume().toPlainString());
+        }
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private record SeriesTimeframeKey(Long seriesId, String timeframe) {

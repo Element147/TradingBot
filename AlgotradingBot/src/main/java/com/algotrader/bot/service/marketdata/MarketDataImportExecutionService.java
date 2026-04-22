@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -31,17 +32,23 @@ public class MarketDataImportExecutionService {
 
     private final MarketDataImportJobRepository marketDataImportJobRepository;
     private final MarketDataProviderRegistry marketDataProviderRegistry;
-    private final MarketDataCsvSupport marketDataCsvSupport;
     private final MarketDataSessionFilter marketDataSessionFilter;
     private final BacktestDatasetCatalogService backtestDatasetCatalogService;
     private final BacktestDatasetStorageService backtestDatasetStorageService;
     private final OperatorAuditService operatorAuditService;
     private final MarketDataImportProgressService marketDataImportProgressService;
+
+    /**
+     * In-memory accumulator replacing the legacy staged_csv_data BYTEA column.
+     * Each active job accumulates its parsed OHLCVData rows here rather than
+     * serialising them back to the database on every chunk.
+     */
+    private final ConcurrentHashMap<Long, List<OHLCVData>> stagedCandles = new ConcurrentHashMap<>();
+
     private final Set<Long> locallyDispatchedJobIds = ConcurrentHashMap.newKeySet();
 
     public MarketDataImportExecutionService(MarketDataImportJobRepository marketDataImportJobRepository,
                                             MarketDataProviderRegistry marketDataProviderRegistry,
-                                            MarketDataCsvSupport marketDataCsvSupport,
                                             MarketDataSessionFilter marketDataSessionFilter,
                                             BacktestDatasetCatalogService backtestDatasetCatalogService,
                                             BacktestDatasetStorageService backtestDatasetStorageService,
@@ -49,7 +56,6 @@ public class MarketDataImportExecutionService {
                                             MarketDataImportProgressService marketDataImportProgressService) {
         this.marketDataImportJobRepository = marketDataImportJobRepository;
         this.marketDataProviderRegistry = marketDataProviderRegistry;
-        this.marketDataCsvSupport = marketDataCsvSupport;
         this.marketDataSessionFilter = marketDataSessionFilter;
         this.backtestDatasetCatalogService = backtestDatasetCatalogService;
         this.backtestDatasetStorageService = backtestDatasetStorageService;
@@ -82,6 +88,7 @@ public class MarketDataImportExecutionService {
         } catch (MarketDataRetryableException exception) {
             updateRetry(jobId, exception.getRetryAt(), exception.getMessage());
         } catch (Exception exception) {
+            stagedCandles.remove(jobId);
             markFailed(jobId, exception.getMessage());
         }
     }
@@ -100,6 +107,7 @@ public class MarketDataImportExecutionService {
 
         while (LocalDateTime.now().isBefore(deadline)) {
             if (job.getStatus() == MarketDataImportJobStatus.CANCELLED) {
+                stagedCandles.remove(job.getId());
                 return;
             }
 
@@ -151,9 +159,14 @@ public class MarketDataImportExecutionService {
                 ? marketDataSessionFilter.regularSessionOnly(fetchedBars)
                 : fetchedBars;
 
-            byte[] updatedCsv = marketDataCsvSupport.appendRows(job.getStagedCsvData(), filteredBars);
-            backtestDatasetStorageService.validateDatasetSize(updatedCsv.length);
-            job.setStagedCsvData(updatedCsv);
+            // Accumulate into the in-memory staged candle list (replaces staged_csv_data BYTEA).
+            List<OHLCVData> accumulated = stagedCandles.computeIfAbsent(job.getId(), id -> new ArrayList<>());
+            accumulated.addAll(filteredBars);
+
+            // Validate that total accumulated size stays within the 25 MB cap (conservative estimate).
+            int estimatedBytes = accumulated.size() * 80;
+            backtestDatasetStorageService.validateDatasetSize(estimatedBytes);
+
             job.setImportedRowCount(job.getImportedRowCount() + filteredBars.size());
             job.setStatusMessage(
                 "Fetched " + filteredBars.size() + " bars for " + currentSymbol
@@ -211,6 +224,7 @@ public class MarketDataImportExecutionService {
         int nextRetryCount = job.getRetryCount() + 1;
         job.setRetryCount(nextRetryCount);
         if (job.getMaxRetryCount() != null && nextRetryCount > job.getMaxRetryCount()) {
+            stagedCandles.remove(jobId);
             markFailed(
                 jobId,
                 "Automatic retry limit reached after " + job.getRetryCount()
@@ -248,6 +262,7 @@ public class MarketDataImportExecutionService {
     private void queueForContinuation(Long jobId, String message) {
         MarketDataImportJob job = getJob(jobId);
         if (job.getStatus() == MarketDataImportJobStatus.CANCELLED) {
+            stagedCandles.remove(jobId);
             return;
         }
         job.setStatus(MarketDataImportJobStatus.QUEUED);
@@ -258,16 +273,22 @@ public class MarketDataImportExecutionService {
     }
 
     private void completeJob(MarketDataImportJob job, MarketDataProvider provider) {
+        List<OHLCVData> candles = stagedCandles.remove(job.getId());
+        if (candles == null) {
+            candles = List.of();
+        }
         String filename = provider.definition().id()
             + "-" + job.getAssetType().name().toLowerCase(Locale.ROOT)
             + "-" + job.getTimeframe()
             + "-" + job.getStartDate()
             + "-" + job.getEndDate()
             + ".csv";
+        String checksumSha256 = BacktestDatasetStorageService.checksumFromCandles(candles);
         BacktestDatasetResponse dataset = backtestDatasetCatalogService.importDataset(
             job.getDatasetName(),
             filename,
-            job.getStagedCsvData(),
+            candles,
+            checksumSha256,
             provider.definition().label()
         );
 
@@ -277,7 +298,6 @@ public class MarketDataImportExecutionService {
         managed.setStatusMessage(
             "Completed. Imported " + managed.getImportedRowCount() + " rows into dataset #" + dataset.id() + "."
         );
-        managed.setStagedCsvData(null);
         managed.setNextRetryAt(null);
         managed.setCompletedAt(LocalDateTime.now());
         MarketDataImportJob saved = marketDataImportJobRepository.save(managed);

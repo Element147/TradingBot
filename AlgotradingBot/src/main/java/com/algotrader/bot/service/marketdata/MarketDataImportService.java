@@ -187,7 +187,6 @@ public class MarketDataImportService {
         job.setAttemptCount(0);
         job.setRetryCount(0);
         job.setMaxRetryCount(DEFAULT_MAX_RETRY_COUNT);
-        job.setStagedCsvData(null);
         job.setDatasetId(null);
         job.setStartedAt(null);
         job.setCompletedAt(null);
