@@ -9,8 +9,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.data.domain.Persistable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,7 +23,20 @@ import java.time.LocalDateTime;
     @Index(name = "idx_market_candles_timeframe_bucket", columnList = "timeframe,bucket_start"),
     @Index(name = "idx_market_candles_segment", columnList = "segment_id")
 })
-public class MarketDataCandle {
+public class MarketDataCandle implements Persistable<MarketDataCandleId> {
+
+    @Transient
+    private boolean isNew = true;
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
+    @PostLoad
+    void markNotNew() {
+        this.isNew = false;
+    }
 
     @EmbeddedId
     private MarketDataCandleId id;
@@ -71,6 +87,7 @@ public class MarketDataCandle {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
+        this.isNew = false;
     }
 
     public MarketDataCandleId getId() {

@@ -55,7 +55,7 @@ public final class PhaseThreeStrategyAuditRunner {
         .divide(BigDecimal.valueOf(10000), 8, RoundingMode.HALF_UP);
     private static final long AUDIT_DATASET_ID = 12L;
     private static final String AUDIT_DATASET_CHECKSUM =
-        "b93c95da97c05f4edf4d706b80d33fcfab752f4f4d6f11f003fa3aca2fe2d326";
+        "6cfdb41a3a9912122dcf5a71d30bbcfca834cb91f805c08d247aedf83a053e30";
     private static final String PRIMARY_SYMBOL = "BTC/USDT";
     private static final LocalDateTime FULL_SAMPLE_START = LocalDateTime.parse("2024-03-12T00:00:00");
     private static final LocalDateTime HOLDOUT_SPLIT = LocalDateTime.parse("2025-07-01T00:00:00");

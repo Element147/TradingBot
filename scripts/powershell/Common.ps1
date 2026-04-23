@@ -404,7 +404,7 @@ function Resolve-BackendJvmSettings {
         InitialHeapMb = $InitialHeapMb
         MaxHeapMb = $MaxHeapMb
         MaxMetaspaceMb = $MaxMetaspaceMb
-        JavaToolOptions = "-Xms${InitialHeapMb}m -Xmx${MaxHeapMb}m -XX:+UseZGC -XX:MaxMetaspaceSize=${MaxMetaspaceMb}m"
+        JavaToolOptions = "-Duser.timezone=UTC -Xms${InitialHeapMb}m -Xmx${MaxHeapMb}m -XX:+UseZGC -XX:MaxMetaspaceSize=${MaxMetaspaceMb}m"
     }
 }
 

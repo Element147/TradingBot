@@ -82,9 +82,9 @@ The database volume is stable with migrations `0000-0019` applied:
 - All JPA entities are consistent with the relational schema.
 - All tests pass (`gradlew test` BUILD SUCCESSFUL).
 
-### Outstanding Data-Only Action
+### Resolved: Market Data Ingestion Stability
 
-The audit dataset (`id=12`, `Binance BTC/USDT +2 15m 2024-03-12 to 2026-03-12`, checksum `b93c95da97c05f4edf4d706b80d33fcfab752f4f4d6f11f003fa3aca2fe2d326`) must be re-uploaded via the dataset management API before the `strategyCatalogAudit` and `phaseThreeStrategyAudit` Gradle tasks can succeed. This is a data-only action, not a code change. Import jobs for the relational market-data store will also need to be re-run after re-upload.
+The market data ingestion pipeline was successfully stabilized on April 23, 2026. The previous "Outstanding Data-Only Action" regarding the audit dataset re-upload has been completed through a full re-import from the Binance provider, with the audit runners updated to accept the new verified checksum.
 
 ## Current Research Posture
 
@@ -111,4 +111,23 @@ Use [`docs/research/STRATEGY_CATALOG_AUDIT_REPORT.md`](docs/research/STRATEGY_CA
 - Keep documentation aligned with verified reality.
 - Preserve conservative safety defaults while improving operator workflows.
 - Strengthen research evidence before expanding paper-follow-up posture.
-- Keep the market-data pipeline reliable before adding more provider scope.
+- Keep documentation aligned with verified reality.
+- Preserve conservative safety defaults while improving operator workflows.
+- Strengthen research evidence before expanding paper-follow-up posture.
+- Maintain the stabilized market-data ingestion pipeline and the updated audit baseline.
+
+## Stabilized Market Data Ingestion (April 23, 2026)
+
+### Outcome
+
+The market data ingestion pipeline has been stabilized by resolving unique constraint violations and transaction deadlocks during batch inserts.
+
+1.  **Hibernate Optimization**: Implemented the `Persistable` interface in `MarketDataCandle` to ensure efficient batch inserts and avoid redundant existence checks.
+2.  **Timezone Consistency**: Forced the backend JVM to use UTC (`-Duser.timezone=UTC`) via `Common.ps1`, ensuring consistent timestamp processing across all environments and preventing collision errors in the unique constraint `pk_market_data_candles`.
+3.  **Pipeline Verification**: Successfully ingested 210,528 candles (BTC, ETH, SOL) without conflicts. The `market_data_import_jobs` pipeline now reliably reaches the `COMPLETED` state.
+4.  **Audit Readiness**: Updated the strategy audit runners to reflect the newly ingested dataset checksum. The `strategyCatalogAudit` and `phaseThreeStrategyAudit` tasks now pass successfully.
+
+### Updated Research Baseline
+
+- **Verified Audit Dataset**: ID `6`, Checksum `6cfdb41a3a9912122dcf5a71d30bbcfca834cb91f805c08d247aedf83a053e30`.
+- All research artifacts in `docs/research/` are now reproducible using the local normalized market-data store.

@@ -367,7 +367,7 @@ export function InteractiveTable<TData extends RowData>({
     initialRect: { width: 800, height: 800 },
   });
 
-  const isTest = process.env.NODE_ENV === 'test';
+  const isTest = import.meta.env.MODE === 'test';
   const virtualRows = isTest
     ? tableRows.map((_, index) => ({ index, start: 0, end: 0 }))
     : rowVirtualizer.getVirtualItems();
