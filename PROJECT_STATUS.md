@@ -125,7 +125,8 @@ Resolved issues preventing the ingestion of large backtest datasets and restored
 
 1.  **Increased Storage Capacity**: Updated `BacktestDatasetStorageService` and `application.yml` to increase the maximum dataset upload and in-memory processing limit from 25MB to 250MB. This enables support for multi-year 1-minute intraday datasets (e.g., 3 years of BTC/EUR data ~120MB).
 2.  **Schema Integrity Recovery**: Fixed a discrepancy between Liquibase metadata and the physical table state. Successfully forced a clean schema re-initialization by purging the `databasechangelog` metadata and allowing the Spring Boot bootstrapper to recreate the core tables.
-3.  **Pipeline Re-activation**: Successfully triggered a fresh import for Job #3 (Binance BTC/EUR 1m, 2023-2026). Verified the ingestion pipeline is progressing with the new memory limits and persisting data as expected.
+3.  **Pipeline Re-activation**: Successfully triggered a fresh import for Job #3 (Binance BTC/EUR 1m, 2023-2026). As of April 24, the job is ~97% complete with over 1.53M rows fetched.
+4.  **Resolved UI Loop & Account Creation**: Fixed a "Read-only transaction" error in `PaperTradingService` that was blocking the automatic creation of the default trading account on a fresh database. Improved `AccountService` resilience by returning a 404 (EntityNotFoundException) instead of a 500 when no account exists, unblocking the frontend dashboard.
 
 ## Stabilized Market Data Ingestion (April 23, 2026)
 

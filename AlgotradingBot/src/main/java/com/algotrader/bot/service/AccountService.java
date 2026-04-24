@@ -273,7 +273,7 @@ public class AccountService {
 
         return accountRepository.findTopByOrderByCreatedAtDesc()
                 .map(Account::getId)
-                .orElseThrow(() -> new RuntimeException("No trading account found"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("No trading account found"));
     }
 
     private void assertLiveReadsSupported(String environment) {

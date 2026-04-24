@@ -241,7 +241,7 @@ public class PaperTradingService {
         return mapToResponse(saved);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PaperOrderResponse> listOrders() {
         Account account = resolveAccount();
         return paperOrderRepository.findByAccountIdOrderByCreatedAtDesc(account.getId()).stream()
@@ -249,7 +249,7 @@ public class PaperTradingService {
             .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PaperTradingStateResponse getState() {
         Account account = resolveAccount();
         List<PaperOrder> orders = paperOrderRepository.findByAccountIdOrderByCreatedAtDesc(account.getId());
