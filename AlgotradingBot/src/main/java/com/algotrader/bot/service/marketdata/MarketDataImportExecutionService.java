@@ -163,7 +163,7 @@ public class MarketDataImportExecutionService {
             List<OHLCVData> accumulated = stagedCandles.computeIfAbsent(job.getId(), id -> new ArrayList<>());
             accumulated.addAll(filteredBars);
 
-            // Validate that total accumulated size stays within the 25 MB cap (conservative estimate).
+            // Validate that total accumulated size stays within the 250 MB cap (conservative estimate).
             int estimatedBytes = accumulated.size() * 80;
             backtestDatasetStorageService.validateDatasetSize(estimatedBytes);
 

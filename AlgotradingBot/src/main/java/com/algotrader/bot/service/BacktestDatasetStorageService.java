@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 @Service
 public class BacktestDatasetStorageService {
 
-    private static final long MAX_UPLOAD_BYTES = 25L * 1024L * 1024L;
+    private static final long MAX_UPLOAD_BYTES = 250L * 1024L * 1024L;
     private static final DateTimeFormatter CSV_TIMESTAMP_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private static final String CSV_HEADER = "timestamp,symbol,open,high,low,close,volume";
 
@@ -115,7 +115,7 @@ public class BacktestDatasetStorageService {
 
     public void validateDatasetSize(long payloadSizeBytes) {
         if (payloadSizeBytes > MAX_UPLOAD_BYTES) {
-            throw new IllegalArgumentException("CSV file is too large. Max size is 25MB");
+            throw new IllegalArgumentException("CSV file is too large. Max size is 250MB");
         }
     }
 

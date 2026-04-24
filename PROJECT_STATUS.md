@@ -115,6 +115,17 @@ Use [`docs/research/STRATEGY_CATALOG_AUDIT_REPORT.md`](docs/research/STRATEGY_CA
 - Preserve conservative safety defaults while improving operator workflows.
 - Strengthen research evidence before expanding paper-follow-up posture.
 - Maintain the stabilized market-data ingestion pipeline and the updated audit baseline.
+- Support ingestion of large backtest datasets (up to 250MB).
+
+## Support for Large Datasets and Database Recovery (April 24, 2026)
+
+### Outcome
+
+Resolved issues preventing the ingestion of large backtest datasets and restored the database schema following environment corruption.
+
+1.  **Increased Storage Capacity**: Updated `BacktestDatasetStorageService` and `application.yml` to increase the maximum dataset upload and in-memory processing limit from 25MB to 250MB. This enables support for multi-year 1-minute intraday datasets (e.g., 3 years of BTC/EUR data ~120MB).
+2.  **Schema Integrity Recovery**: Fixed a discrepancy between Liquibase metadata and the physical table state. Successfully forced a clean schema re-initialization by purging the `databasechangelog` metadata and allowing the Spring Boot bootstrapper to recreate the core tables.
+3.  **Pipeline Re-activation**: Successfully triggered a fresh import for Job #3 (Binance BTC/EUR 1m, 2023-2026). Verified the ingestion pipeline is progressing with the new memory limits and persisting data as expected.
 
 ## Stabilized Market Data Ingestion (April 23, 2026)
 

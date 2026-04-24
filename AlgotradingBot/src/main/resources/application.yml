@@ -8,6 +8,10 @@ spring:
   threads:
     virtual:
       enabled: true
+  servlet:
+    multipart:
+      max-file-size: 250MB
+      max-request-size: 250MB
   
   # PostgreSQL Database Configuration
   datasource:
