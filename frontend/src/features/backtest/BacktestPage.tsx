@@ -410,7 +410,10 @@ export default function BacktestPage() {
 
   const onViewDetails = (backtestId: number) => {
     setSelectedId(backtestId);
-    setRouteTab('review');
+    updateSearchParams((params) => {
+      params.set('tab', 'review');
+      params.set('run', String(backtestId));
+    });
     setFeedback({
       severity: 'success',
       message: `Showing detailed results for run ${backtestId}.`,
@@ -621,7 +624,6 @@ export default function BacktestPage() {
         setActiveComparisonIds([]);
       }}
       onToggleComparison={toggleComparison}
-      onSelectRun={setSelectedId}
       onViewDetails={onViewDetails}
       onReplayBacktest={onReplayBacktest}
       onDeleteResult={onDeleteResult}

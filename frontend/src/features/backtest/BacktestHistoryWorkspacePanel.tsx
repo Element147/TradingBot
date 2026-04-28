@@ -68,7 +68,6 @@ interface BacktestHistoryWorkspacePanelProps {
   onCompareSelected: () => void | Promise<void>;
   onClearComparison: () => void;
   onToggleComparison: (backtestId: number) => void;
-  onSelectRun: (backtestId: number) => void;
   onViewDetails: (backtestId: number) => void;
   onReplayBacktest: (backtestId: number) => void | Promise<void>;
   onDeleteResult: (item: BacktestHistoryItem) => void | Promise<void>;
@@ -108,7 +107,6 @@ export function BacktestHistoryWorkspacePanel({
   onCompareSelected,
   onClearComparison,
   onToggleComparison,
-  onSelectRun,
   onViewDetails,
   onReplayBacktest,
   onDeleteResult,
@@ -489,7 +487,7 @@ export function BacktestHistoryWorkspacePanel({
           </Stack>
         }
         activeFilterPills={filterSummaryPills}
-        onRowClick={(row) => onSelectRun(row.id)}
+        onRowClick={(row) => onViewDetails(row.id)}
         isRowSelected={(row) => row.id === selectedId}
         getRowId={(row) => String(row.id)}
         maxHeight={720}
