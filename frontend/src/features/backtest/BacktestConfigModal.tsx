@@ -343,7 +343,7 @@ export function BacktestConfigModal({
                   datasetId: value ? String(value.id) : '',
                   symbol:
                     value && !requiresDatasetUniverse
-                      ? (value.id === 'ALL_DATASETS' ? 'ALL_SYMBOLS' : (parseSymbols(value.symbolsCsv)[0] ?? ''))
+                      ? (String(value.id) === 'ALL_DATASETS' ? 'ALL_SYMBOLS' : (parseSymbols(value.symbolsCsv)[0] ?? ''))
                       : '',
                 })
               }
@@ -365,7 +365,7 @@ export function BacktestConfigModal({
                     <Typography variant="body2" fontWeight={600}>
                       {option.name}
                     </Typography>
-                    {option.id !== 'ALL_DATASETS' ? (
+                    {String(option.id) !== 'ALL_DATASETS' ? (
                       <Typography variant="caption" color="text.secondary">
                         {parseSymbols(option.symbolsCsv).length} symbols | {option.rowCount} rows |{' '}
                         {option.dataStart.slice(0, 10)} to {option.dataEnd.slice(0, 10)}

@@ -2,6 +2,7 @@ package com.algotrader.bot.service.marketdata;
 
 import com.algotrader.bot.entity.MarketDataImportJob;
 import com.algotrader.bot.repository.MarketDataImportJobRepository;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,14 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:postgresql://localhost:5432/algotrading",
-    "spring.datasource.username=postgres",
-    "spring.datasource.password=postgres",
-    "spring.datasource.driver-class-name=org.postgresql.Driver",
-    "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
-    "spring.liquibase.enabled=false"
-})
+@SpringBootTest
+@ActiveProfiles("test")
+@Disabled("This is a manual utility to trigger retries in a live dev environment, not a regression test.")
 public class TriggerImportTest {
 
     @Autowired

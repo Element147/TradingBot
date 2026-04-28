@@ -1,4 +1,4 @@
-﻿import type { SerializedError } from '@reduxjs/toolkit';
+import type { SerializedError } from '@reduxjs/toolkit';
 import { fetchBaseQuery } from '@reduxjs/toolkit/query';
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { Mutex } from 'async-mutex';
@@ -42,14 +42,12 @@ const baseQuery = fetchBaseQuery({
         : getHeaderValue(arg.headers, 'X-Execution-Context');
     
     // Add authentication token if available
-    // Note: authSlice will be implemented in task 1.4
     const token = state.auth?.token;
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
     
     // Add environment mode header (test/live)
-    // Note: environmentSlice will be implemented in task 2.3
     const requestedEnvironment =
       typeof arg === 'string'
         ? null
@@ -99,7 +97,7 @@ const getHeaderValue = (headers: FetchArgs['headers'], headerName: string): stri
     return matchedHeader ? matchedHeader[1] : null;
   }
 
-  return headers[headerName] ?? headers[headerName.toLowerCase()] ?? null;
+  return (headers as any)[headerName] ?? (headers as any)[headerName.toLowerCase()] ?? null;
 };
 
 export type EnvironmentOverride = 'test' | 'live';
@@ -146,12 +144,6 @@ export const withExecutionContext = (
 
 /**
  * Base query with automatic retry logic
- * 
- * Retry behavior:
- * - Retries on network errors (no response)
- * - Retries on 5xx server errors (3 attempts)
- * - Does NOT retry on 4xx client errors
- * - Exponential backoff: 1s, 2s, 4s
  */
 export const baseQueryWithRetry: BaseQueryFn<
   string | FetchArgs,
@@ -185,32 +177,17 @@ export const baseQueryWithRetry: BaseQueryFn<
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
   
-  // Fallback (should never reach here)
   return await baseQuery(args, api, extraOptions);
 };
 
 /**
  * Base query with error handling middleware and automatic token refresh
- * 
- * Handles:
- * - 401 Unauthorized - triggers token refresh or logout
- * - Network errors - displays user-friendly messages
- * - Server errors - logs for debugging
- * 
- * Token refresh flow:
- * 1. On 401 error, acquire mutex to prevent concurrent refresh attempts
- * 2. Check if token has already been refreshed by another request
- * 3. Attempt to refresh token using refresh token from localStorage
- * 4. If refresh succeeds, update token and retry original request
- * 5. If refresh fails, logout user and redirect to login
  */
 export const baseQueryWithErrorHandling: BaseQueryFn<
   string | FetchArgs,
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
-  // Wait for any ongoing refresh to complete
-  await mutex.waitForUnlock();
   
   let result = await baseQueryWithRetry(args, api, extraOptions);
   
@@ -236,7 +213,6 @@ export const baseQueryWithErrorHandling: BaseQueryFn<
           );
           
           if (refreshResult.data) {
-            // Token refresh successful
             const refreshPayload = refreshResult.data as {
               token?: string;
               accessToken?: string;
@@ -247,22 +223,16 @@ export const baseQueryWithErrorHandling: BaseQueryFn<
             if (!token) {
               api.dispatch(logout());
               redirectToLogin();
-
               return result;
             }
             
-            // Update token in Redux store
             api.dispatch(setToken(token));
-            
-            // Retry the original request with new token
             result = await baseQueryWithRetry(args, api, extraOptions);
           } else {
-            // Token refresh failed - logout user
             api.dispatch(logout());
             redirectToLogin();
           }
         } else {
-          // No refresh token available - logout user
           api.dispatch(logout());
           redirectToLogin();
         }
@@ -270,13 +240,11 @@ export const baseQueryWithErrorHandling: BaseQueryFn<
         release();
       }
     } else {
-      // Wait for the ongoing refresh to complete and retry
       await mutex.waitForUnlock();
       result = await baseQueryWithRetry(args, api, extraOptions);
     }
   }
   
-  // Log errors in development
   if (result.error && import.meta.env.DEV) {
     console.error('API Error:', {
       status: result.error.status,
@@ -287,7 +255,6 @@ export const baseQueryWithErrorHandling: BaseQueryFn<
   return result;
 };
 
-// Export the configured base query for use in API slices
 export const baseQueryWithEnvironment = baseQueryWithErrorHandling;
 
 const extractErrorMessageFromPayload = (payload: unknown): string | null => {
@@ -333,5 +300,3 @@ export const getApiErrorMessage = (error: unknown, fallback = 'An unexpected err
 
   return fallback;
 };
-
-
