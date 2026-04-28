@@ -18,7 +18,7 @@ import { useEffect, useMemo } from 'react';
 
 import type { BacktestAlgorithm, BacktestDataset, RunBacktestPayload } from './backtestApi';
 import {
-  buildRunBacktestPayload,
+  buildRunBacktestPayloads,
   type BacktestConfigFormState,
 } from './backtestConfigForm';
 
@@ -34,7 +34,7 @@ interface BacktestConfigModalProps {
   busy: boolean;
   onChange: (next: BacktestConfigFormState) => void;
   onClose: () => void;
-  onRun: (payload: RunBacktestPayload) => Promise<void> | void;
+  onRun: (payloads: RunBacktestPayload[]) => Promise<void> | void;
 }
 
 const parseSymbols = (symbolsCsv: string): string[] =>
@@ -59,20 +59,39 @@ export function BacktestConfigModal({
     () => algorithms.find((algorithm) => algorithm.id === form.algorithmType) ?? null,
     [algorithms, form.algorithmType]
   );
+  const isAllDatasets = form.datasetId === 'ALL_DATASETS';
   const selectedDataset = useMemo(
-    () => datasets.find((dataset) => String(dataset.id) === form.datasetId) ?? null,
-    [datasets, form.datasetId]
+    () => isAllDatasets ? { id: 'ALL_DATASETS', name: 'All Active Datasets', symbolsCsv: '', rowCount: 0, dataStart: '', dataEnd: '' } as unknown as BacktestDataset : (datasets.find((dataset) => String(dataset.id) === form.datasetId) ?? null),
+    [datasets, form.datasetId, isAllDatasets]
   );
-  const availableSymbols = useMemo(
-    () => (selectedDataset ? parseSymbols(selectedDataset.symbolsCsv) : []),
-    [selectedDataset]
-  );
+  const datasetOptions = useMemo(() => [
+    { id: 'ALL_DATASETS', name: 'All Active Datasets', symbolsCsv: '', rowCount: 0, dataStart: '', dataEnd: '' } as unknown as BacktestDataset,
+    ...datasets,
+  ], [datasets]);
+  const availableSymbols = useMemo(() => {
+    if (isAllDatasets) {
+      const allSyms = new Set<string>();
+      datasets.forEach(d => parseSymbols(d.symbolsCsv).forEach(s => allSyms.add(s)));
+      return Array.from(allSyms);
+    }
+    return selectedDataset && !isAllDatasets ? parseSymbols(selectedDataset.symbolsCsv) : [];
+  }, [isAllDatasets, datasets, selectedDataset]);
+
+  const symbolOptions = useMemo(() => [
+    'ALL_SYMBOLS',
+    ...availableSymbols,
+  ], [availableSymbols]);
+
   const requiresDatasetUniverse = selectedAlgorithm?.selectionMode === 'DATASET_UNIVERSE';
   const selectedAlgorithmProfile = useMemo(
     () => getStrategyProfile(form.algorithmType),
     [form.algorithmType]
   );
   const timeframeOptions = selectedAlgorithmProfile?.timeframeOptions ?? COMMON_TIMEFRAMES;
+  const timeframeDropdownOptions = useMemo(() => [
+    'ALL_TIMEFRAMES',
+    ...timeframeOptions,
+  ], [timeframeOptions]);
   const recommendedTimeframe =
     selectedAlgorithmProfile?.configPreset.timeframe ?? timeframeOptions[0] ?? '1h';
   const dispositionHeadline = selectedAlgorithmProfile
@@ -105,21 +124,21 @@ export function BacktestConfigModal({
 
     if (!form.datasetId) {
       errors.datasetId = 'Please choose a dataset first.';
-    } else if (!selectedDataset) {
+    } else if (!isAllDatasets && !selectedDataset) {
       errors.datasetId = 'The selected dataset is no longer available. Pick another one.';
     }
 
     if (!requiresDatasetUniverse) {
       if (!form.symbol.trim()) {
         errors.symbol = 'Please choose one symbol from the selected dataset.';
-      } else if (!availableSymbols.includes(form.symbol)) {
+      } else if (form.symbol !== 'ALL_SYMBOLS' && !availableSymbols.includes(form.symbol)) {
         errors.symbol = 'The selected symbol is not available in this dataset.';
       }
     }
 
     if (!form.timeframe.trim()) {
       errors.timeframe = 'Choose a timeframe.';
-    } else if (!timeframeOptions.includes(form.timeframe)) {
+    } else if (form.timeframe !== 'ALL_TIMEFRAMES' && !timeframeOptions.includes(form.timeframe)) {
       errors.timeframe = `Choose one of the supported timeframes for this strategy: ${timeframeOptions.join(', ')}.`;
     }
 
@@ -155,16 +174,33 @@ export function BacktestConfigModal({
         errors.dateRange ??
         null,
     };
-  }, [availableSymbols, form, requiresDatasetUniverse, selectedDataset, timeframeOptions]);
+  }, [availableSymbols, form, requiresDatasetUniverse, selectedDataset, timeframeOptions, isAllDatasets]);
+
+  const combinationsCount = useMemo(() => {
+    try {
+      return buildRunBacktestPayloads(
+        form,
+        selectedAlgorithm?.selectionMode ?? 'SINGLE_SYMBOL',
+        datasets,
+        timeframeOptions
+      ).length;
+    } catch {
+      return 0;
+    }
+  }, [form, selectedAlgorithm, datasets, timeframeOptions]);
 
   const run = async () => {
     if (validation.summary) {
       return;
     }
 
-    await onRun(
-      buildRunBacktestPayload(form, selectedAlgorithm?.selectionMode ?? 'SINGLE_SYMBOL')
+    const payloads = buildRunBacktestPayloads(
+      form,
+      selectedAlgorithm?.selectionMode ?? 'SINGLE_SYMBOL',
+      datasets,
+      timeframeOptions
     );
+    await onRun(payloads);
   };
 
   const applyRecommendedSetup = () => {
@@ -299,7 +335,7 @@ export function BacktestConfigModal({
 
           <FieldTooltip title="Dataset controls what market history is replayed. Wrong dataset means misleading conclusions.">
             <Autocomplete
-              options={datasets}
+              options={datasetOptions}
               value={selectedDataset}
               onChange={(_event, value) =>
                 onChange({
@@ -307,12 +343,12 @@ export function BacktestConfigModal({
                   datasetId: value ? String(value.id) : '',
                   symbol:
                     value && !requiresDatasetUniverse
-                      ? parseSymbols(value.symbolsCsv)[0] ?? ''
+                      ? (value.id === 'ALL_DATASETS' ? 'ALL_SYMBOLS' : (parseSymbols(value.symbolsCsv)[0] ?? ''))
                       : '',
                 })
               }
               getOptionLabel={(option) => option.name}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
+              isOptionEqualToValue={(option, value) => String(option.id) === String(value.id)}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -329,10 +365,12 @@ export function BacktestConfigModal({
                     <Typography variant="body2" fontWeight={600}>
                       {option.name}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {parseSymbols(option.symbolsCsv).length} symbols | {option.rowCount} rows |{' '}
-                      {option.dataStart.slice(0, 10)} to {option.dataEnd.slice(0, 10)}
-                    </Typography>
+                    {option.id !== 'ALL_DATASETS' ? (
+                      <Typography variant="caption" color="text.secondary">
+                        {parseSymbols(option.symbolsCsv).length} symbols | {option.rowCount} rows |{' '}
+                        {option.dataStart.slice(0, 10)} to {option.dataEnd.slice(0, 10)}
+                      </Typography>
+                    ) : null}
                   </Stack>
                 </Box>
               )}
@@ -365,7 +403,7 @@ export function BacktestConfigModal({
           {requiresDatasetUniverse ? null : availableSymbols.length > 0 ? (
             <FieldTooltip title="Trading pair to simulate. Must match dataset coverage for meaningful results.">
               <Autocomplete
-                options={availableSymbols}
+                options={symbolOptions}
                 value={form.symbol || null}
                 onChange={(_event, value) => onChange({ ...form, symbol: value ?? '' })}
                 renderInput={(params) => (
@@ -399,19 +437,19 @@ export function BacktestConfigModal({
               }
               SelectProps={{ native: true }}
             >
-              {timeframeOptions.map((timeframe) => (
+              {timeframeDropdownOptions.map((timeframe) => (
                 <option key={timeframe} value={timeframe}>
-                  {timeframe}
+                  {timeframe === 'ALL_TIMEFRAMES' ? 'All Recommended Timeframes' : timeframe}
                 </option>
               ))}
             </TextField>
           </FieldTooltip>
 
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {timeframeOptions.map((timeframe) => (
+            {timeframeDropdownOptions.map((timeframe) => (
               <Chip
                 key={timeframe}
-                label={timeframe === recommendedTimeframe ? `${timeframe} recommended` : timeframe}
+                label={timeframe === 'ALL_TIMEFRAMES' ? 'All Timeframes' : (timeframe === recommendedTimeframe ? `${timeframe} recommended` : timeframe)}
                 color={form.timeframe === timeframe ? 'primary' : 'default'}
                 variant={form.timeframe === timeframe ? 'filled' : 'outlined'}
                 onClick={() => onChange({ ...form, timeframe })}
@@ -488,16 +526,19 @@ export function BacktestConfigModal({
               <Typography variant="subtitle2">Run summary</Typography>
               <Typography variant="body2" color="text.secondary">
                 Strategy: {selectedAlgorithm?.label ?? 'Not selected'} | Dataset:{' '}
-                {selectedDataset?.name ?? 'Not selected'}
+                {isAllDatasets ? 'All Active Datasets' : (selectedDataset?.name ?? 'Not selected')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Market focus:{' '}
-                {requiresDatasetUniverse ? 'Whole dataset universe' : form.symbol || 'Choose a symbol'}{' '}
-                | Timeframe: {form.timeframe || 'Choose a timeframe'}
+                {requiresDatasetUniverse ? 'Whole dataset universe' : (form.symbol === 'ALL_SYMBOLS' ? 'All available symbols' : (form.symbol || 'Choose a symbol'))}{' '}
+                | Timeframe: {form.timeframe === 'ALL_TIMEFRAMES' ? 'All Recommended Timeframes' : (form.timeframe || 'Choose a timeframe')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Capital: {form.initialBalance || '-'} | Fees/slippage: {form.feesBps || '-'} /{' '}
                 {form.slippageBps || '-'} bps
+              </Typography>
+              <Typography variant="body2" fontWeight={700} color="primary.main" sx={{ mt: 1 }}>
+                Combinations to run: {combinationsCount}
               </Typography>
             </Stack>
           </Paper>
@@ -512,10 +553,10 @@ export function BacktestConfigModal({
         <Button onClick={onClose}>Cancel</Button>
         <Button
           variant="contained"
-          disabled={busy || Boolean(validation.summary)}
+          disabled={busy || Boolean(validation.summary) || combinationsCount === 0}
           onClick={() => void run()}
         >
-          Run Backtest
+          {combinationsCount > 1 ? `Run ${combinationsCount} Backtests` : 'Run Backtest'}
         </Button>
       </DialogActions>
     </Dialog>

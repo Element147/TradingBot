@@ -373,16 +373,28 @@ export default function BacktestPage() {
     }
   };
 
-  const onRunBacktest = async (payload: RunBacktestPayload) => {
+  const onRunBacktest = async (payloads: RunBacktestPayload[]) => {
     try {
-      const response = await runBacktest(payload).unwrap();
-      setSelectedId(response.id);
-      setFeedback({
-        severity: 'success',
-        message: `Backtest ${response.id} submitted (${response.status}).`,
-      });
-      setConfigModalOpen(false);
-      setRouteTab('review');
+      const promises = payloads.map(payload => runBacktest(payload).unwrap());
+      const responses = await Promise.all(promises);
+      setSelectedId(responses[responses.length - 1].id);
+      
+      if (responses.length > 1) {
+        setFeedback({
+          severity: 'success',
+          message: `${responses.length} backtests submitted successfully.`,
+        });
+        setConfigModalOpen(false);
+        setRouteTab('history');
+      } else {
+        const response = responses[0];
+        setFeedback({
+          severity: 'success',
+          message: `Backtest ${response.id} submitted (${response.status}).`,
+        });
+        setConfigModalOpen(false);
+        setRouteTab('review');
+      }
     } catch (error) {
       setFeedback({ severity: 'error', message: getErrorMessage(error) });
     }

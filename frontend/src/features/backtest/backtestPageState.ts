@@ -34,16 +34,30 @@ export const resolveFormState = (
   algorithms: BacktestAlgorithm[]
 ): BacktestConfigFormState => {
   const selectedDatasetId = form.datasetId || (datasets[0] ? String(datasets[0].id) : '');
-  const selectedDataset = datasets.find((dataset) => String(dataset.id) === selectedDatasetId) ?? null;
+  const isAllDatasets = selectedDatasetId === 'ALL_DATASETS';
+  const selectedDataset = !isAllDatasets ? (datasets.find((dataset) => String(dataset.id) === selectedDatasetId) ?? null) : null;
   const selectedAlgorithm = algorithms.find((algorithm) => algorithm.id === form.algorithmType) ?? null;
   const requiresDatasetUniverse = selectedAlgorithm?.selectionMode === 'DATASET_UNIVERSE';
-  const datasetSymbols = selectedDataset ? parseSymbols(selectedDataset.symbolsCsv) : [];
+  
+  let datasetSymbols: string[] = [];
+  if (isAllDatasets) {
+    const allSymbols = new Set<string>();
+    datasets.forEach(d => parseSymbols(d.symbolsCsv).forEach(s => allSymbols.add(s)));
+    datasetSymbols = Array.from(allSymbols);
+  } else if (selectedDataset) {
+    datasetSymbols = parseSymbols(selectedDataset.symbolsCsv);
+  }
+
+  const isAllSymbols = form.symbol === 'ALL_SYMBOLS';
+
   const resolvedSymbol =
     requiresDatasetUniverse
       ? ''
-      : datasetSymbols.length === 0 || datasetSymbols.includes(form.symbol)
-        ? form.symbol
-        : datasetSymbols[0];
+      : isAllSymbols
+        ? 'ALL_SYMBOLS'
+        : datasetSymbols.length === 0 || datasetSymbols.includes(form.symbol)
+          ? form.symbol
+          : datasetSymbols[0] ?? '';
 
   return {
     ...form,
