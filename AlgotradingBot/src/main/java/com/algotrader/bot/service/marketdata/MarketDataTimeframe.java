@@ -7,6 +7,7 @@ import java.util.Locale;
 public enum MarketDataTimeframe {
     ONE_MINUTE("1m", Duration.ofMinutes(1), Duration.ofHours(12)),
     FIVE_MINUTES("5m", Duration.ofMinutes(5), Duration.ofDays(3)),
+    TEN_MINUTES("10m", Duration.ofMinutes(10), Duration.ofDays(7)),
     FIFTEEN_MINUTES("15m", Duration.ofMinutes(15), Duration.ofDays(10)),
     THIRTY_MINUTES("30m", Duration.ofMinutes(30), Duration.ofDays(20)),
     ONE_HOUR("1h", Duration.ofHours(1), Duration.ofDays(40)),

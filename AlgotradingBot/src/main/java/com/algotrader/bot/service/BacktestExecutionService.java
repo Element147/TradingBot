@@ -39,6 +39,7 @@ public class BacktestExecutionService {
     private final BacktestExecutionLifecycleService backtestExecutionLifecycleService;
     private final BackendOperationMetrics backendOperationMetrics;
     private final ConcurrentMap<Long, Boolean> inFlightBacktests = new ConcurrentHashMap<>();
+    private final java.util.concurrent.Semaphore executionSemaphore = new java.util.concurrent.Semaphore(4);
 
     public BacktestExecutionService(BacktestDatasetStorageService backtestDatasetStorageService,
                                     BacktestSimulationEngine backtestSimulationEngine,
@@ -62,6 +63,7 @@ public class BacktestExecutionService {
         }
 
         try {
+            executionSemaphore.acquire();
             long executionStartedAt = System.nanoTime();
             BacktestExecutionLifecycleService.BacktestExecutionContext context =
                 backtestExecutionLifecycleService.markRunStarted(backtestId);
@@ -234,6 +236,7 @@ public class BacktestExecutionService {
                 logger.error("Unable to persist failure state for backtest {}", backtestId, markFailedException);
             }
         } finally {
+            executionSemaphore.release();
             inFlightBacktests.remove(backtestId);
         }
 
