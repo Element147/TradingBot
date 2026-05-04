@@ -29,7 +29,6 @@ export const BalanceCard: React.FC = () => {
   return (
     <SurfacePanel
       title="Account Balance"
-      description="Keep total, available, and locked capital visible before opening a denser account view."
       actions={
         <IconButton
           onClick={() => void refetch()}
@@ -58,19 +57,16 @@ export const BalanceCard: React.FC = () => {
             <MetricCard
               label="Total Balance"
               value={formatCurrency(balance.total)}
-              detail="Combined workstation balance across tracked assets."
               tone="info"
             />
             <MetricCard
               label="Available"
               value={formatCurrency(balance.available)}
-              detail="Free capital available for paper or test allocations."
               tone="success"
             />
             <MetricCard
               label="Locked"
               value={formatCurrency(balance.locked)}
-              detail="Capital reserved in open orders or current position state."
               tone="warning"
             />
           </Box>

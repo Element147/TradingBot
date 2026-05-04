@@ -19,6 +19,7 @@ import {
   ListItemIcon,
   ListItemText,
   Stack,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -93,16 +94,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
             <Typography variant="overline" sx={{ color: 'primary.main' }}>
               AlgoTrading Bot
             </Typography>
-            <Typography variant="h6" sx={{ mt: 0.25, letterSpacing: '-0.02em' }}>
-              Research Workstation
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mt: 0.75, overflowWrap: 'anywhere' }}
-            >
-              Navigation for the test-first research, paper, risk, and operator workflow.
-            </Typography>
+            <Tooltip title="Navigation for the test-first research, paper, risk, and operator workflow." arrow placement="right">
+              <Typography variant="h6" sx={{ mt: 0.25, letterSpacing: '-0.02em', cursor: 'pointer' }}>
+                Research Workstation
+              </Typography>
+            </Tooltip>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <StatusPill label="Default: test" tone="success" variant="filled" />
@@ -132,62 +128,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
 
                 return (
                   <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-                    <ListItemButton
-                      onClick={() => handleNavigation(item.path)}
-                      selected={isActive}
-                      sx={{
-                        px: 1.5,
-                        py: 1.35,
-                        alignItems: 'center',
-                        borderRadius: 0,
-                        border: '1px solid',
-                        borderColor: isActive
-                          ? alpha(theme.palette.primary.main, 0.42)
-                          : alpha(theme.palette.text.primary, 0.12),
-                        backgroundColor: isActive
-                          ? alpha(theme.palette.primary.main, 0.18)
-                          : alpha(theme.palette.background.paper, 0.42),
-                        boxShadow: isActive
-                          ? `inset 3px 0 0 ${theme.palette.primary.main}`
-                          : 'none',
-                        '&:hover': {
-                          backgroundColor: isActive
-                            ? alpha(theme.palette.primary.main, 0.22)
-                            : alpha(theme.palette.primary.main, 0.08),
+                    <Tooltip title={item.detail} arrow placement="right">
+                      <ListItemButton
+                        onClick={() => handleNavigation(item.path)}
+                        selected={isActive}
+                        sx={{
+                          px: 1.5,
+                          py: 1.1,
+                          alignItems: 'center',
+                          borderRadius: 0,
+                          border: '1px solid',
                           borderColor: isActive
-                            ? alpha(theme.palette.primary.main, 0.48)
-                            : alpha(theme.palette.primary.main, 0.2),
-                        },
-                        '& .MuiListItemIcon-root': {
-                          color: isActive
-                            ? theme.palette.primary.main
-                            : alpha(theme.palette.text.primary, 0.84),
-                        },
-                      }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 42, mt: 0.15 }}>
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={item.text}
-                        secondary={item.detail}
-                        primaryTypographyProps={{
-                          fontWeight: 700,
-                          color: isActive ? 'text.primary' : alpha(theme.palette.text.primary, 0.96),
-                        }}
-                        secondaryTypographyProps={{
-                          variant: 'body2',
-                          color: isActive
-                            ? alpha(theme.palette.primary.main, 0.92)
-                            : alpha(theme.palette.text.secondary, 0.96),
-                          sx: {
-                            mt: 0.25,
-                            lineHeight: 1.45,
-                            overflowWrap: 'anywhere',
+                            ? alpha(theme.palette.primary.main, 0.42)
+                            : alpha(theme.palette.text.primary, 0.12),
+                          backgroundColor: isActive
+                            ? alpha(theme.palette.primary.main, 0.18)
+                            : alpha(theme.palette.background.paper, 0.42),
+                          boxShadow: isActive
+                            ? `inset 3px 0 0 ${theme.palette.primary.main}`
+                            : 'none',
+                          '&:hover': {
+                            backgroundColor: isActive
+                              ? alpha(theme.palette.primary.main, 0.22)
+                              : alpha(theme.palette.primary.main, 0.08),
+                            borderColor: isActive
+                              ? alpha(theme.palette.primary.main, 0.48)
+                              : alpha(theme.palette.primary.main, 0.2),
+                          },
+                          '& .MuiListItemIcon-root': {
+                            color: isActive
+                              ? theme.palette.primary.main
+                              : alpha(theme.palette.text.primary, 0.84),
                           },
                         }}
-                      />
-                    </ListItemButton>
+                      >
+                        <ListItemIcon sx={{ minWidth: 42, mt: 0.15 }}>
+                          {item.icon}
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={item.text}
+                          primaryTypographyProps={{
+                            fontWeight: 700,
+                            color: isActive ? 'text.primary' : alpha(theme.palette.text.primary, 0.96),
+                          }}
+                        />
+                      </ListItemButton>
+                    </Tooltip>
                   </ListItem>
                 );
               })}

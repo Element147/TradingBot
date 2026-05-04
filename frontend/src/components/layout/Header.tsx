@@ -203,16 +203,26 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               <Typography variant="overline" color="text.secondary">
                 Research Workstation
               </Typography>
-              <Typography variant={isMobile ? 'h6' : 'h5'} sx={{ lineHeight: 1.08 }}>
-                {currentRoute.title}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.45, maxWidth: 920 }}
-              >
-                {currentRoute.subtitle}
-              </Typography>
+              <Tooltip title={currentRoute.subtitle} arrow placement="bottom-start">
+                <Typography
+                  variant={isMobile ? 'h6' : 'h5'}
+                  sx={{
+                    lineHeight: 1.08,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  {currentRoute.title}
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'primary.main', fontWeight: 'bold' }}
+                  >
+                    [?]
+                  </Typography>
+                </Typography>
+              </Tooltip>
             </Box>
 
             <Stack
@@ -267,41 +277,69 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {routeExecutionContext ? (
-              <StatusPill
-                tone={routeExecutionContext.context === 'live' ? 'error' : 'info'}
-                label={`Context: ${routeExecutionContext.label}`}
-                variant="filled"
-              />
+              <Tooltip title="The active execution context for this specific route.">
+                <Box>
+                  <StatusPill
+                    tone={routeExecutionContext.context === 'live' ? 'error' : 'info'}
+                    label={`Ctx: ${routeExecutionContext.label}`}
+                    variant="filled"
+                  />
+                </Box>
+              </Tooltip>
             ) : null}
-            <StatusPill
-              tone={environmentMode === 'live' ? 'error' : 'success'}
-              label={`Operations: ${environmentMode.toUpperCase()}`}
-              variant="filled"
-            />
-            <StatusPill
-              tone={telemetryConnected ? 'success' : 'warning'}
-              label={`Telemetry: ${telemetryConnected ? 'Live stream' : 'Polling fallback'}`}
-            />
-            <StatusPill
-              tone={
-                riskStatus
-                  ? riskStatus.circuitBreakerActive
-                    ? 'error'
-                    : 'success'
-                  : 'default'
-              }
-              label={`Risk: ${
+            <Tooltip title={`The core operating environment: ${environmentMode.toUpperCase()}`}>
+              <Box>
+                <StatusPill
+                  tone={environmentMode === 'live' ? 'error' : 'success'}
+                  label={`Ops: ${environmentMode.toUpperCase()}`}
+                  variant="filled"
+                />
+              </Box>
+            </Tooltip>
+            <Tooltip title={telemetryConnected ? 'Websocket connected. Live data stream active.' : 'Websocket disconnected. Polling fallback active.'}>
+              <Box>
+                <StatusPill
+                  tone={telemetryConnected ? 'success' : 'warning'}
+                  label={`Telemetry: ${telemetryConnected ? 'Live' : 'Polling'}`}
+                />
+              </Box>
+            </Tooltip>
+            <Tooltip
+              title={
                 riskStatus
                   ? riskStatus.circuitBreakerActive
                     ? 'Breaker active'
                     : 'Guarded'
-                  : 'Loading'
-              }`}
-            />
-            <StatusPill
-              tone={activeExchangeConnection?.testnet === false ? 'warning' : 'info'}
-              label={`Exchange: ${exchangeLabel}`}
-            />
+                  : 'Risk limits evaluated dynamically.'
+              }
+            >
+              <Box>
+                <StatusPill
+                  tone={
+                    riskStatus
+                      ? riskStatus.circuitBreakerActive
+                        ? 'error'
+                        : 'success'
+                      : 'default'
+                  }
+                  label={`Risk: ${
+                    riskStatus
+                      ? riskStatus.circuitBreakerActive
+                        ? 'Breaker'
+                        : 'Guarded'
+                      : 'Loading'
+                  }`}
+                />
+              </Box>
+            </Tooltip>
+            <Tooltip title={`Exchange profile: ${exchangeLabel}`}>
+              <Box>
+                <StatusPill
+                  tone={activeExchangeConnection?.testnet === false ? 'warning' : 'info'}
+                  label={`Exch: ${activeExchangeConnection ? activeExchangeConnection.exchange.toUpperCase() : 'None'}`}
+                />
+              </Box>
+            </Tooltip>
           </Stack>
         </Stack>
 

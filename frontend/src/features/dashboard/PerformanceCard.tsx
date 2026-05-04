@@ -36,7 +36,6 @@ export const PerformanceCard: React.FC = () => {
   return (
     <SurfacePanel
       title="Performance"
-      description="Switch time windows without losing the top-line return, win rate, and capital posture."
       sx={{ height: '100%' }}
     >
       <ToggleButtonGroup
@@ -105,7 +104,6 @@ export const PerformanceCard: React.FC = () => {
                 </NumericText>
               </Stack>
             }
-            detail="Top-line return for the selected review window."
             tone={profitTone}
             kicker={timeframe}
             sx={{ gridColumn: { xs: 'span 1', md: 'span 2' } }}
@@ -113,19 +111,16 @@ export const PerformanceCard: React.FC = () => {
           <MetricCard
             label="Win Rate"
             value={formatPercentage(performance.winRate)}
-            detail="Share of completed trades that closed positive."
             tone="success"
           />
           <MetricCard
             label="Trade Count"
             value={performance.tradeCount}
-            detail="Recorded trades in the selected review window."
             tone="info"
           />
           <MetricCard
-            label="Cash to Invested Capital Ratio"
+            label="Cash to Invested Ratio"
             value={formatCompactNumber(performance.cashRatio, 2, 2)}
-            detail="Higher values leave more dry powder for controlled follow-up."
             tone="warning"
             sx={{ gridColumn: { xs: 'span 1', md: 'span 2' } }}
           />

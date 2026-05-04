@@ -119,7 +119,7 @@ describe('PerformanceCard', { timeout: 15000 }, () => {
 
   it('should display cash ratio correctly', () => {
     render(<PerformanceCard />);
-    expect(screen.getByText('Cash to Invested Capital Ratio')).toBeInTheDocument();
+    expect(screen.getByText('Cash to Invested Ratio')).toBeInTheDocument();
     expect(screen.getByText('1.25')).toBeInTheDocument();
   });
 
@@ -162,7 +162,7 @@ describe('PerformanceCard', { timeout: 15000 }, () => {
     render(<PerformanceCard />);
     expect(screen.getByText('Win Rate')).toBeInTheDocument();
     expect(screen.getByText('Trade Count')).toBeInTheDocument();
-    expect(screen.getByText('Cash to Invested Capital Ratio')).toBeInTheDocument();
+    expect(screen.getByText('Cash to Invested Ratio')).toBeInTheDocument();
   });
 
   it('should have proper ARIA labels for timeframe buttons', () => {
