@@ -39,7 +39,7 @@ public class BacktestExecutionService {
     private final BacktestExecutionLifecycleService backtestExecutionLifecycleService;
     private final BackendOperationMetrics backendOperationMetrics;
     private final ConcurrentMap<Long, Boolean> inFlightBacktests = new ConcurrentHashMap<>();
-    private final java.util.concurrent.Semaphore executionSemaphore = new java.util.concurrent.Semaphore(4);
+    private final java.util.concurrent.Semaphore executionSemaphore = new java.util.concurrent.Semaphore(2);
 
     public BacktestExecutionService(BacktestDatasetStorageService backtestDatasetStorageService,
                                     BacktestSimulationEngine backtestSimulationEngine,

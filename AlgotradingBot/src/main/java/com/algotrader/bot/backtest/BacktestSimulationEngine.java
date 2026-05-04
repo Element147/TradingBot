@@ -74,10 +74,12 @@ public class BacktestSimulationEngine {
         equitySamples.add(new BacktestEquityPointSample(timeline.get(0), request.initialBalance(), BigDecimal.ZERO));
         int totalTimelineSteps = timeline.size();
         int progressMilestone = Math.max(1, totalTimelineSteps / 20);
+        int samplingStep = Math.max(1, totalTimelineSteps / 5000);
 
         for (int timelineIndex = 0; timelineIndex < timeline.size(); timelineIndex++) {
             LocalDateTime currentTimestamp = timeline.get(timelineIndex);
             Map<String, Integer> currentIndexBySymbol = buildCurrentIndexMap(indexByTimestamp, currentTimestamp);
+            boolean tradeExecuted = false;
 
             if (pendingDecision != null) {
                 BacktestStrategyContext executionContext = new BacktestStrategyContext(
@@ -100,7 +102,7 @@ public class BacktestSimulationEngine {
                     EntrySnapshot entry = enterPosition(
                         pendingDecision.targetSymbol(),
                         PositionSide.LONG,
-                        normalizeAllocation(pendingDecision.allocationFraction()),
+                         normalizeAllocation(pendingDecision.allocationFraction()),
                         executionContext.currentCandle(pendingDecision.targetSymbol()).getOpen(),
                         cash,
                         costRate
@@ -115,6 +117,7 @@ public class BacktestSimulationEngine {
                         activeSide = PositionSide.LONG;
                         entryTimelineIndex = timelineIndex;
                         entryTimestamp = currentTimestamp;
+                        tradeExecuted = true;
                     }
                 } else if (activeSymbol == null && pendingDecision.action() == BacktestStrategyAction.SHORT) {
                     EntrySnapshot entry = enterPosition(
@@ -135,6 +138,7 @@ public class BacktestSimulationEngine {
                         activeSide = PositionSide.SHORT;
                         entryTimelineIndex = timelineIndex;
                         entryTimestamp = currentTimestamp;
+                        tradeExecuted = true;
                     }
                 } else if (activeSymbol != null
                     && shouldExitPosition(activeSide, pendingDecision.action())) {
@@ -170,6 +174,7 @@ public class BacktestSimulationEngine {
                     activeSide = null;
                     entryTimelineIndex = -1;
                     entryTimestamp = null;
+                    tradeExecuted = true;
                 } else if (activeSymbol != null
                     && activeSide == PositionSide.LONG
                     && pendingDecision.action() == BacktestStrategyAction.ROTATE
@@ -228,6 +233,7 @@ public class BacktestSimulationEngine {
                         entryTimelineIndex = timelineIndex;
                         entryTimestamp = currentTimestamp;
                     }
+                    tradeExecuted = true;
                 }
 
                 pendingDecision = null;
@@ -259,7 +265,9 @@ public class BacktestSimulationEngine {
             BigDecimal equity = activeSymbol == null
                 ? cash
                 : markToMarketEquity(activeSide, cash, quantity, entryPrice, entryValue, context.currentClose(activeSymbol));
-            equitySamples.add(new BacktestEquityPointSample(currentTimestamp, equity, BigDecimal.ZERO));
+            if (timelineIndex == 0 || timelineIndex == timeline.size() - 1 || timelineIndex % samplingStep == 0 || tradeExecuted) {
+                equitySamples.add(new BacktestEquityPointSample(currentTimestamp, equity, BigDecimal.ZERO));
+            }
 
             if (progressListener != null) {
                 int processedCandles = timelineIndex + 1;
