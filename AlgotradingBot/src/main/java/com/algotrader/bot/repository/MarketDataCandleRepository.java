@@ -12,18 +12,37 @@ import java.util.List;
 public interface MarketDataCandleRepository extends JpaRepository<MarketDataCandle, MarketDataCandleId> {
 
     @Query("""
-        select candle
+        select new com.algotrader.bot.repository.MarketDataCandleDto(
+            candle.id.bucketStart,
+            series.symbolDisplay,
+            candle.openPrice,
+            candle.highPrice,
+            candle.lowPrice,
+            candle.closePrice,
+            candle.volume,
+            dataset.id,
+            importJob.id,
+            segment.id,
+            series.id,
+            series.providerId,
+            series.exchangeId,
+            candle.id.timeframe,
+            segment.resolutionTier,
+            segment.sourceType,
+            segment.coverageStart,
+            segment.coverageEnd
+        )
         from MarketDataCandle candle
-        join fetch candle.series series
-        join fetch candle.segment segment
-        join fetch segment.dataset dataset
-        left join fetch segment.importJob importJob
+        join candle.series series
+        join candle.segment segment
+        join segment.dataset dataset
+        left join segment.importJob importJob
         where candle.id.seriesId = :seriesId
           and candle.id.timeframe = :timeframe
           and candle.id.bucketStart between :windowStart and :windowEnd
         order by candle.id.bucketStart asc
         """)
-    List<MarketDataCandle> findCandlesInRange(
+    List<MarketDataCandleDto> findCandlesInRange(
         @Param("seriesId") Long seriesId,
         @Param("timeframe") String timeframe,
         @Param("windowStart") LocalDateTime windowStart,
@@ -31,18 +50,37 @@ public interface MarketDataCandleRepository extends JpaRepository<MarketDataCand
     );
 
     @Query("""
-        select candle
+        select new com.algotrader.bot.repository.MarketDataCandleDto(
+            candle.id.bucketStart,
+            series.symbolDisplay,
+            candle.openPrice,
+            candle.highPrice,
+            candle.lowPrice,
+            candle.closePrice,
+            candle.volume,
+            dataset.id,
+            importJob.id,
+            segment.id,
+            series.id,
+            series.providerId,
+            series.exchangeId,
+            candle.id.timeframe,
+            segment.resolutionTier,
+            segment.sourceType,
+            segment.coverageStart,
+            segment.coverageEnd
+        )
         from MarketDataCandle candle
-        join fetch candle.series series
-        join fetch candle.segment segment
-        join fetch segment.dataset dataset
-        left join fetch segment.importJob importJob
-        where segment.dataset.id = :datasetId
+        join candle.series series
+        join candle.segment segment
+        join segment.dataset dataset
+        left join segment.importJob importJob
+        where dataset.id = :datasetId
           and candle.id.timeframe = :timeframe
           and candle.id.bucketStart between :windowStart and :windowEnd
         order by candle.id.bucketStart asc, series.symbolNormalized asc
         """)
-    List<MarketDataCandle> findDatasetCandlesInRange(
+    List<MarketDataCandleDto> findDatasetCandlesInRange(
         @Param("datasetId") Long datasetId,
         @Param("timeframe") String timeframe,
         @Param("windowStart") LocalDateTime windowStart,
@@ -50,19 +88,38 @@ public interface MarketDataCandleRepository extends JpaRepository<MarketDataCand
     );
 
     @Query("""
-        select candle
+        select new com.algotrader.bot.repository.MarketDataCandleDto(
+            candle.id.bucketStart,
+            series.symbolDisplay,
+            candle.openPrice,
+            candle.highPrice,
+            candle.lowPrice,
+            candle.closePrice,
+            candle.volume,
+            dataset.id,
+            importJob.id,
+            segment.id,
+            series.id,
+            series.providerId,
+            series.exchangeId,
+            candle.id.timeframe,
+            segment.resolutionTier,
+            segment.sourceType,
+            segment.coverageStart,
+            segment.coverageEnd
+        )
         from MarketDataCandle candle
-        join fetch candle.series series
-        join fetch candle.segment segment
-        join fetch segment.dataset dataset
-        left join fetch segment.importJob importJob
-        where segment.dataset.id = :datasetId
+        join candle.series series
+        join candle.segment segment
+        join segment.dataset dataset
+        left join segment.importJob importJob
+        where dataset.id = :datasetId
           and candle.id.timeframe = :timeframe
           and candle.id.bucketStart between :windowStart and :windowEnd
           and (upper(series.symbolDisplay) = upper(:symbol) or upper(series.symbolNormalized) = upper(:symbol))
         order by candle.id.bucketStart asc
         """)
-    List<MarketDataCandle> findDatasetCandlesForSymbolInRange(
+    List<MarketDataCandleDto> findDatasetCandlesForSymbolInRange(
         @Param("datasetId") Long datasetId,
         @Param("timeframe") String timeframe,
         @Param("symbol") String symbol,
@@ -71,19 +128,38 @@ public interface MarketDataCandleRepository extends JpaRepository<MarketDataCand
     );
 
     @Query("""
-        select candle
+        select new com.algotrader.bot.repository.MarketDataCandleDto(
+            candle.id.bucketStart,
+            series.symbolDisplay,
+            candle.openPrice,
+            candle.highPrice,
+            candle.lowPrice,
+            candle.closePrice,
+            candle.volume,
+            dataset.id,
+            importJob.id,
+            segment.id,
+            series.id,
+            series.providerId,
+            series.exchangeId,
+            candle.id.timeframe,
+            segment.resolutionTier,
+            segment.sourceType,
+            segment.coverageStart,
+            segment.coverageEnd
+        )
         from MarketDataCandle candle
-        join fetch candle.series series
-        join fetch candle.segment segment
-        join fetch segment.dataset dataset
-        left join fetch segment.importJob importJob
-        where segment.dataset.id = :datasetId
+        join candle.series series
+        join candle.segment segment
+        join segment.dataset dataset
+        left join segment.importJob importJob
+        where dataset.id = :datasetId
           and candle.id.seriesId = :seriesId
           and candle.id.timeframe = :timeframe
           and candle.id.bucketStart between :windowStart and :windowEnd
         order by candle.id.bucketStart asc
         """)
-    List<MarketDataCandle> findDatasetSeriesCandlesInRange(
+    List<MarketDataCandleDto> findDatasetSeriesCandlesInRange(
         @Param("datasetId") Long datasetId,
         @Param("seriesId") Long seriesId,
         @Param("timeframe") String timeframe,

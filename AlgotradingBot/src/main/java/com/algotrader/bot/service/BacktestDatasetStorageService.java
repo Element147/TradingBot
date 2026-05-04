@@ -6,6 +6,7 @@ import com.algotrader.bot.entity.BacktestDataset;
 import com.algotrader.bot.entity.MarketDataCandle;
 import com.algotrader.bot.entity.MarketDataCandleSegment;
 import com.algotrader.bot.repository.BacktestDatasetRepository;
+import com.algotrader.bot.repository.MarketDataCandleDto;
 import com.algotrader.bot.repository.MarketDataCandleRepository;
 import com.algotrader.bot.repository.MarketDataCandleSegmentRepository;
 import com.algotrader.bot.service.marketdata.LegacyMarketDataMigrationService;
@@ -224,7 +225,7 @@ public class BacktestDatasetStorageService {
                 Collectors.toList()
             ));
 
-        List<MarketDataCandle> candles = segmentsBySeries.values().stream()
+        List<com.algotrader.bot.repository.MarketDataCandleDto> candles = segmentsBySeries.values().stream()
             .flatMap(groupedSegments -> {
                 MarketDataCandleSegment first = groupedSegments.getFirst();
                 LocalDateTime coverageStart = groupedSegments.stream()
@@ -244,11 +245,11 @@ public class BacktestDatasetStorageService {
                 ).stream();
             })
             .sorted((left, right) -> {
-                int timestampComparison = left.getId().getBucketStart().compareTo(right.getId().getBucketStart());
+                int timestampComparison = left.bucketStart().compareTo(right.bucketStart());
                 if (timestampComparison != 0) {
                     return timestampComparison;
                 }
-                return left.getSeries().getSymbolDisplay().compareToIgnoreCase(right.getSeries().getSymbolDisplay());
+                return left.symbolDisplay().compareToIgnoreCase(right.symbolDisplay());
             })
             .toList();
         if (candles.isEmpty()) {
@@ -256,21 +257,21 @@ public class BacktestDatasetStorageService {
         }
 
         StringBuilder csv = new StringBuilder(CSV_HEADER);
-        for (MarketDataCandle candle : candles) {
+        for (com.algotrader.bot.repository.MarketDataCandleDto candle : candles) {
             csv.append('\n')
-                .append(CSV_TIMESTAMP_FORMATTER.format(candle.getId().getBucketStart()))
+                .append(CSV_TIMESTAMP_FORMATTER.format(candle.bucketStart()))
                 .append(',')
-                .append(candle.getSeries().getSymbolDisplay())
+                .append(candle.symbolDisplay())
                 .append(',')
-                .append(candle.getOpenPrice().toPlainString())
+                .append(candle.openPrice().toPlainString())
                 .append(',')
-                .append(candle.getHighPrice().toPlainString())
+                .append(candle.highPrice().toPlainString())
                 .append(',')
-                .append(candle.getLowPrice().toPlainString())
+                .append(candle.lowPrice().toPlainString())
                 .append(',')
-                .append(candle.getClosePrice().toPlainString())
+                .append(candle.closePrice().toPlainString())
                 .append(',')
-                .append(candle.getVolume().toPlainString());
+                .append(candle.volume().toPlainString());
         }
         return csv.toString().getBytes(StandardCharsets.UTF_8);
     }

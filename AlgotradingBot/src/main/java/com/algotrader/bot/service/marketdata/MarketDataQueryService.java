@@ -4,6 +4,7 @@ import com.algotrader.bot.backtest.OHLCVData;
 import com.algotrader.bot.entity.MarketDataCandle;
 import com.algotrader.bot.entity.MarketDataCandleSegment;
 import com.algotrader.bot.entity.MarketDataSeries;
+import com.algotrader.bot.repository.MarketDataCandleDto;
 import com.algotrader.bot.repository.MarketDataCandleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -321,30 +322,28 @@ public class MarketDataQueryService {
         return symbol.toUpperCase(Locale.ROOT) + "|" + bucketStart;
     }
 
-    private MarketDataQueriedCandle toQueriedCandle(MarketDataCandle candle) {
-        MarketDataSeries series = candle.getSeries();
-        MarketDataCandleSegment segment = candle.getSegment();
+    private MarketDataQueriedCandle toQueriedCandle(MarketDataCandleDto candle) {
         return new MarketDataQueriedCandle(
-            candle.getId().getBucketStart(),
-            series.getSymbolDisplay(),
-            candle.getOpenPrice(),
-            candle.getHighPrice(),
-            candle.getLowPrice(),
-            candle.getClosePrice(),
-            candle.getVolume(),
+            candle.bucketStart(),
+            candle.symbolDisplay(),
+            candle.openPrice(),
+            candle.highPrice(),
+            candle.lowPrice(),
+            candle.closePrice(),
+            candle.volume(),
             new MarketDataCandleProvenance(
-                segment.getDataset().getId(),
-                segment.getImportJob() == null ? null : segment.getImportJob().getId(),
-                segment.getId(),
-                series.getId(),
-                series.getProviderId(),
-                series.getExchangeId(),
-                series.getSymbolDisplay(),
-                candle.getId().getTimeframe(),
-                segment.getResolutionTier(),
-                segment.getSourceType(),
-                segment.getCoverageStart(),
-                segment.getCoverageEnd()
+                candle.datasetId(),
+                candle.importJobId(),
+                candle.segmentId(),
+                candle.seriesId(),
+                candle.providerId(),
+                candle.exchangeId(),
+                candle.symbolDisplay(),
+                candle.timeframe(),
+                candle.resolutionTier(),
+                candle.sourceType(),
+                candle.coverageStart(),
+                candle.coverageEnd()
             )
         );
     }

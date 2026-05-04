@@ -69,22 +69,22 @@ class MarketDataRepositoryIntegrationTest {
         marketDataCandleRepository.saveAndFlush(candle(series, segment, LocalDateTime.parse("2025-01-01T00:00:00"), "100"));
         marketDataCandleRepository.saveAndFlush(candle(series, segment, LocalDateTime.parse("2025-01-01T01:00:00"), "101"));
 
-        List<MarketDataCandle> candles = marketDataCandleRepository.findCandlesInRange(
+        List<MarketDataCandleDto> candles = marketDataCandleRepository.findCandlesInRange(
             series.getId(),
             "1h",
             LocalDateTime.parse("2025-01-01T00:00:00"),
             LocalDateTime.parse("2025-01-01T02:00:00")
         );
 
-        assertThat(candles).extracting(candle -> candle.getId().getBucketStart()).containsExactly(
+        assertThat(candles).extracting(candle -> candle.bucketStart()).containsExactly(
             LocalDateTime.parse("2025-01-01T00:00:00"),
             LocalDateTime.parse("2025-01-01T01:00:00"),
             LocalDateTime.parse("2025-01-01T02:00:00")
         );
-        assertThat(candles).extracting(MarketDataCandle::getClosePrice).containsExactly(
-            new BigDecimal("100"),
-            new BigDecimal("101"),
-            new BigDecimal("102")
+        assertThat(candles).extracting(candle -> candle.closePrice().stripTrailingZeros()).containsExactly(
+            new BigDecimal("100").stripTrailingZeros(),
+            new BigDecimal("101").stripTrailingZeros(),
+            new BigDecimal("102").stripTrailingZeros()
         );
     }
 

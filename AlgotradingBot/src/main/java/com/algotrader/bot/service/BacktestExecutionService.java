@@ -39,7 +39,6 @@ public class BacktestExecutionService {
     private final BacktestExecutionLifecycleService backtestExecutionLifecycleService;
     private final BackendOperationMetrics backendOperationMetrics;
     private final ConcurrentMap<Long, Boolean> inFlightBacktests = new ConcurrentHashMap<>();
-    private final java.util.concurrent.Semaphore executionSemaphore = new java.util.concurrent.Semaphore(2);
 
     public BacktestExecutionService(BacktestDatasetStorageService backtestDatasetStorageService,
                                     BacktestSimulationEngine backtestSimulationEngine,
@@ -55,7 +54,7 @@ public class BacktestExecutionService {
         this.backendOperationMetrics = backendOperationMetrics;
     }
 
-    @Async("virtualThreadTaskExecutor")
+    @Async("backtestTaskExecutor")
     public CompletableFuture<Void> executeAsync(Long backtestId) {
         if (inFlightBacktests.putIfAbsent(backtestId, Boolean.TRUE) != null) {
             logger.info("Backtest {} is already scheduled or running in this JVM. Skipping duplicate dispatch.", backtestId);
@@ -63,7 +62,6 @@ public class BacktestExecutionService {
         }
 
         try {
-            executionSemaphore.acquire();
             long executionStartedAt = System.nanoTime();
             BacktestExecutionLifecycleService.BacktestExecutionContext context =
                 backtestExecutionLifecycleService.markRunStarted(backtestId);
@@ -236,7 +234,6 @@ public class BacktestExecutionService {
                 logger.error("Unable to persist failure state for backtest {}", backtestId, markFailedException);
             }
         } finally {
-            executionSemaphore.release();
             inFlightBacktests.remove(backtestId);
         }
 

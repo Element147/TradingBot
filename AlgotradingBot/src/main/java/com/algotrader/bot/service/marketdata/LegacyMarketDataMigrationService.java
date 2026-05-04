@@ -92,19 +92,19 @@ public class LegacyMarketDataMigrationService {
                 continue;
             }
 
-            List<MarketDataCandle> existingCandles = marketDataCandleRepository.findCandlesInRange(
+            List<com.algotrader.bot.repository.MarketDataCandleDto> existingCandles = marketDataCandleRepository.findCandlesInRange(
                 series.getId(),
                 plan.timeframe().id(),
                 plan.coverageStart(),
                 plan.coverageEnd()
             );
-            Map<LocalDateTime, MarketDataCandle> existingByBucket = existingCandles.stream()
-                .collect(Collectors.toMap(candle -> candle.getId().getBucketStart(), candle -> candle, (left, _right) -> left, LinkedHashMap::new));
+            Map<LocalDateTime, com.algotrader.bot.repository.MarketDataCandleDto> existingByBucket = existingCandles.stream()
+                .collect(Collectors.toMap(candle -> candle.bucketStart(), candle -> candle, (left, _right) -> left, LinkedHashMap::new));
 
             List<OHLCVData> candlesToInsert = new ArrayList<>(plan.candles().size());
             int duplicatesForPlan = 0;
             for (OHLCVData candle : plan.candles()) {
-                MarketDataCandle existing = existingByBucket.get(candle.getTimestamp());
+                com.algotrader.bot.repository.MarketDataCandleDto existing = existingByBucket.get(candle.getTimestamp());
                 if (existing == null) {
                     candlesToInsert.add(candle);
                     continue;
@@ -284,15 +284,15 @@ public class LegacyMarketDataMigrationService {
                     .map(MarketDataCandleSegment::getCoverageEnd)
                     .max(LocalDateTime::compareTo)
                     .orElseThrow();
-                List<MarketDataCandle> candles = marketDataCandleRepository.findDatasetSeriesCandlesInRange(
+                List<com.algotrader.bot.repository.MarketDataCandleDto> candles = marketDataCandleRepository.findDatasetSeriesCandlesInRange(
                     firstSegment.getDataset().getId(),
                     firstSegment.getSeries().getId(),
                     firstSegment.getTimeframe(),
                     coverageStart,
                     coverageEnd
                 );
-                LocalDateTime actualStart = candles.isEmpty() ? null : candles.getFirst().getId().getBucketStart();
-                LocalDateTime actualEnd = candles.isEmpty() ? null : candles.getLast().getId().getBucketStart();
+                LocalDateTime actualStart = candles.isEmpty() ? null : candles.getFirst().bucketStart();
+                LocalDateTime actualEnd = candles.isEmpty() ? null : candles.getLast().bucketStart();
                 return planDigest(
                     firstSegment.getSeries().getSymbolDisplay(),
                     firstSegment.getTimeframe(),
@@ -310,12 +310,12 @@ public class LegacyMarketDataMigrationService {
         return series.getProviderId() + "|" + series.getExchangeId() + "|" + series.getAssetClass() + "|" + series.getSymbolNormalized();
     }
 
-    private boolean matches(MarketDataCandle existing, OHLCVData candle) {
-        return existing.getOpenPrice().compareTo(candle.getOpen()) == 0
-            && existing.getHighPrice().compareTo(candle.getHigh()) == 0
-            && existing.getLowPrice().compareTo(candle.getLow()) == 0
-            && existing.getClosePrice().compareTo(candle.getClose()) == 0
-            && existing.getVolume().compareTo(candle.getVolume()) == 0;
+    private boolean matches(com.algotrader.bot.repository.MarketDataCandleDto existing, OHLCVData candle) {
+        return existing.openPrice().compareTo(candle.getOpen()) == 0
+            && existing.highPrice().compareTo(candle.getHigh()) == 0
+            && existing.lowPrice().compareTo(candle.getLow()) == 0
+            && existing.closePrice().compareTo(candle.getClose()) == 0
+            && existing.volume().compareTo(candle.getVolume()) == 0;
     }
 
     private MarketDataCandle toMarketDataCandle(MarketDataSeries series,
@@ -342,11 +342,11 @@ public class LegacyMarketDataMigrationService {
             .toList());
     }
 
-    private String checksumForMarketDataCandles(List<MarketDataCandle> candles) {
+    private String checksumForMarketDataCandles(List<com.algotrader.bot.repository.MarketDataCandleDto> candles) {
         return checksumForStrings(candles.stream()
-            .map(candle -> candle.getId().getBucketStart() + "|" + candle.getSeries().getSymbolDisplay() + "|"
-                + candle.getOpenPrice() + "|" + candle.getHighPrice() + "|" + candle.getLowPrice() + "|"
-                + candle.getClosePrice() + "|" + candle.getVolume())
+            .map(candle -> candle.bucketStart() + "|" + candle.symbolDisplay() + "|"
+                + candle.openPrice() + "|" + candle.highPrice() + "|" + candle.lowPrice() + "|"
+                + candle.closePrice() + "|" + candle.volume())
             .toList());
     }
 
