@@ -44,6 +44,7 @@ const parseSymbols = (symbolsCsv: string): string[] =>
     .filter((symbol) => symbol.length > 0);
 
 const COMMON_TIMEFRAMES = ['15m', '1h', '4h', '1d'];
+const ALL_TIMEFRAMES_LIST = ['1m', '5m', '10m', '15m', '30m', '1h', '4h', '1d'];
 
 export function BacktestConfigModal({
   open,
@@ -56,9 +57,15 @@ export function BacktestConfigModal({
   onRun,
 }: BacktestConfigModalProps) {
   const selectedAlgorithm = useMemo(
-    () => algorithms.find((algorithm) => algorithm.id === form.algorithmType) ?? null,
+    () => form.algorithmType === 'ALL_ALGORITHMS' ? ({ id: 'ALL_ALGORITHMS', label: 'All Strategies', description: 'Run backtests for all available strategies', selectionMode: 'MIXED' } as unknown as BacktestAlgorithm) : (algorithms.find((algorithm) => algorithm.id === form.algorithmType) ?? null),
     [algorithms, form.algorithmType]
   );
+  
+  const algorithmOptions = useMemo(() => [
+    { id: 'ALL_ALGORITHMS', label: 'All Strategies', description: 'Run backtests for all available strategies', selectionMode: 'MIXED' } as unknown as BacktestAlgorithm,
+    ...algorithms,
+  ], [algorithms]);
+
   const isAllDatasets = form.datasetId === 'ALL_DATASETS';
   const selectedDataset = useMemo(
     () => isAllDatasets ? { id: 'ALL_DATASETS', name: 'All Active Datasets', symbolsCsv: '', rowCount: 0, dataStart: '', dataEnd: '' } as unknown as BacktestDataset : (datasets.find((dataset) => String(dataset.id) === form.datasetId) ?? null),
@@ -90,8 +97,8 @@ export function BacktestConfigModal({
   const timeframeOptions = selectedAlgorithmProfile?.timeframeOptions ?? COMMON_TIMEFRAMES;
   const timeframeDropdownOptions = useMemo(() => [
     'ALL_TIMEFRAMES',
-    ...timeframeOptions,
-  ], [timeframeOptions]);
+    ...ALL_TIMEFRAMES_LIST,
+  ], []);
   const recommendedTimeframe =
     selectedAlgorithmProfile?.configPreset.timeframe ?? timeframeOptions[0] ?? '1h';
   const dispositionHeadline = selectedAlgorithmProfile
@@ -138,8 +145,8 @@ export function BacktestConfigModal({
 
     if (!form.timeframe.trim()) {
       errors.timeframe = 'Choose a timeframe.';
-    } else if (form.timeframe !== 'ALL_TIMEFRAMES' && !timeframeOptions.includes(form.timeframe)) {
-      errors.timeframe = `Choose one of the supported timeframes for this strategy: ${timeframeOptions.join(', ')}.`;
+    } else if (form.timeframe !== 'ALL_TIMEFRAMES' && !ALL_TIMEFRAMES_LIST.includes(form.timeframe)) {
+      errors.timeframe = `Choose one of the supported timeframes for this strategy: ${ALL_TIMEFRAMES_LIST.join(', ')}.`;
     }
 
     const initialBalance = Number(form.initialBalance);
@@ -180,14 +187,14 @@ export function BacktestConfigModal({
     try {
       return buildRunBacktestPayloads(
         form,
-        selectedAlgorithm?.selectionMode ?? 'SINGLE_SYMBOL',
+        algorithms,
         datasets,
-        timeframeOptions
+        ALL_TIMEFRAMES_LIST
       ).length;
     } catch {
       return 0;
     }
-  }, [form, selectedAlgorithm, datasets, timeframeOptions]);
+  }, [form, algorithms, datasets]);
 
   const run = async () => {
     if (validation.summary) {
@@ -196,9 +203,9 @@ export function BacktestConfigModal({
 
     const payloads = buildRunBacktestPayloads(
       form,
-      selectedAlgorithm?.selectionMode ?? 'SINGLE_SYMBOL',
+      algorithms,
       datasets,
-      timeframeOptions
+      ALL_TIMEFRAMES_LIST
     );
     await onRun(payloads);
   };
@@ -264,7 +271,7 @@ export function BacktestConfigModal({
 
           <FieldTooltip title="Select the strategy model to evaluate. Different models can produce very different risk and drawdown behavior.">
             <Autocomplete
-              options={algorithms}
+              options={algorithmOptions}
               value={selectedAlgorithm}
               onChange={(_event, value) =>
                 onChange({
@@ -433,7 +440,7 @@ export function BacktestConfigModal({
               error={Boolean(validation.errors.timeframe)}
               helperText={
                 validation.errors.timeframe ??
-                `Recommended choices for this strategy: ${timeframeOptions.join(', ')}.`
+                (form.algorithmType === 'ALL_ALGORITHMS' ? 'Recommended timeframes vary by strategy.' : `Recommended choices for this strategy: ${timeframeOptions.join(', ')}.`)
               }
               SelectProps={{ native: true }}
             >
@@ -445,16 +452,22 @@ export function BacktestConfigModal({
             </TextField>
           </FieldTooltip>
 
+          <Typography variant="body2" color="text.secondary">
+            {form.algorithmType === 'ALL_ALGORITHMS' ? 'Recommended timeframes vary by strategy. All chosen timeframes will be evaluated.' : `Recommended timeframes for this strategy: ${timeframeOptions.join(', ')}`}
+          </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {timeframeDropdownOptions.map((timeframe) => (
-              <Chip
-                key={timeframe}
-                label={timeframe === 'ALL_TIMEFRAMES' ? 'All Timeframes' : (timeframe === recommendedTimeframe ? `${timeframe} recommended` : timeframe)}
-                color={form.timeframe === timeframe ? 'primary' : 'default'}
-                variant={form.timeframe === timeframe ? 'filled' : 'outlined'}
-                onClick={() => onChange({ ...form, timeframe })}
-              />
-            ))}
+            {timeframeDropdownOptions.map((timeframe) => {
+              const isRecommended = timeframe !== 'ALL_TIMEFRAMES' && timeframeOptions.includes(timeframe);
+              return (
+                <Chip
+                  key={timeframe}
+                  label={timeframe === 'ALL_TIMEFRAMES' ? 'All Timeframes' : (isRecommended && form.algorithmType !== 'ALL_ALGORITHMS' ? `${timeframe} recommended` : timeframe)}
+                  color={form.timeframe === timeframe ? 'primary' : 'default'}
+                  variant={form.timeframe === timeframe ? 'filled' : 'outlined'}
+                  onClick={() => onChange({ ...form, timeframe })}
+                />
+              );
+            })}
           </Stack>
 
           <FieldTooltip title="Backtest start boundary. Earlier start includes more market regimes.">
@@ -531,7 +544,7 @@ export function BacktestConfigModal({
               <Typography variant="body2" color="text.secondary">
                 Market focus:{' '}
                 {requiresDatasetUniverse ? 'Whole dataset universe' : (form.symbol === 'ALL_SYMBOLS' ? 'All available symbols' : (form.symbol || 'Choose a symbol'))}{' '}
-                | Timeframe: {form.timeframe === 'ALL_TIMEFRAMES' ? 'All Recommended Timeframes' : (form.timeframe || 'Choose a timeframe')}
+                | Timeframe: {form.timeframe === 'ALL_TIMEFRAMES' ? 'All Timeframes' : (form.timeframe || 'Choose a timeframe')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Capital: {form.initialBalance || '-'} | Fees/slippage: {form.feesBps || '-'} /{' '}

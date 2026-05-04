@@ -187,7 +187,7 @@ class BacktestManagementControllerIntegrationTest {
         result.setDatasetName("sample-btc");
         result.setExperimentName("BTC Mean Reversion Retest");
         result.setExperimentKey("btc-mean-reversion-retest");
-        result.setTimestamp(LocalDateTime.parse("2026-03-01T10:00:00"));
+        result.setTimestamp(LocalDateTime.now().minusDays(1));
         BacktestEquityPoint equityPoint = new BacktestEquityPoint();
         equityPoint.setPointTimestamp(LocalDateTime.parse("2025-01-01T12:00:00"));
         equityPoint.setEquity(new BigDecimal("1000"));
@@ -228,7 +228,7 @@ class BacktestManagementControllerIntegrationTest {
         comparison.setExperimentKey("btc-mean-reversion-retest");
         comparison.setFeesBps(12);
         comparison.setSlippageBps(5);
-        comparison.setTimestamp(LocalDateTime.parse("2026-02-28T10:00:00"));
+        comparison.setTimestamp(LocalDateTime.now().minusDays(2));
         comparisonBacktestId = backtestResultRepository.save(comparison).getId();
 
         BacktestResult failed = new BacktestResult(
@@ -254,7 +254,7 @@ class BacktestManagementControllerIntegrationTest {
         failed.setFeesBps(18);
         failed.setSlippageBps(7);
         failed.setStatusMessage("Run failed while simulating portfolio rotation.");
-        failed.setTimestamp(LocalDateTime.parse("2026-03-02T10:00:00"));
+        failed.setTimestamp(LocalDateTime.now().minusDays(1));
         failedBacktestId = backtestResultRepository.save(failed).getId();
     }
 

@@ -36,7 +36,7 @@ export const resolveFormState = (
   const selectedDatasetId = form.datasetId || (datasets[0] ? String(datasets[0].id) : '');
   const isAllDatasets = selectedDatasetId === 'ALL_DATASETS';
   const selectedDataset = !isAllDatasets ? (datasets.find((dataset) => String(dataset.id) === selectedDatasetId) ?? null) : null;
-  const selectedAlgorithm = algorithms.find((algorithm) => algorithm.id === form.algorithmType) ?? null;
+  const selectedAlgorithm = form.algorithmType === 'ALL_ALGORITHMS' ? null : algorithms.find((algorithm) => algorithm.id === form.algorithmType) ?? null;
   const requiresDatasetUniverse = selectedAlgorithm?.selectionMode === 'DATASET_UNIVERSE';
   
   let datasetSymbols: string[] = [];
