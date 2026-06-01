@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0020-add-backtest-parameters
+      author: antigravity
+      comment: >
+        Add parameters column to backtest_results table to support parameter sweeps and tracking run settings.
+      changes:
+        - addColumn:
+            tableName: backtest_results
+            columns:
+              - column:
+                  name: parameters
+                  type: varchar(1000)

@@ -262,12 +262,14 @@ class BacktestStrategyCatalogIntegrationTest {
         List<OHLCVData> candles = new ArrayList<>();
         LocalDateTime start = LocalDateTime.parse("2025-01-01T00:00:00");
         List<BigDecimal> closes = List.of(
+            bd(100), bd(100), bd(100), bd(100), bd(100), bd(100), bd(100), bd(100), bd(100), bd(100),
             bd(100), bd(99), bd(98), bd(97), bd(96), bd(95), bd(94), bd(93), bd(92), bd(91),
             bd(90), bd(89), bd(88), bd(87), bd(86), bd(85), bd(84), bd(83), bd(82), bd(81),
             bd(80), bd(79), bd(78), bd(77), bd(76), bd(75), bd(74), bd(73), bd(72), bd(71),
             bd(90), bd(95), bd(100), bd(105), bd(110), bd(115), bd(108), bd(100), bd(92), bd(84),
             bd(76), bd(68), bd(60), bd(58), bd(56)
         );
+
 
         for (int i = 0; i < closes.size(); i++) {
             candles.add(candle(start.plusHours(i), symbol, closes.get(i)));

@@ -26,5 +26,6 @@ public record BacktestHistoryItemResponse(
     LocalDateTime lastProgressAt,
     LocalDateTime startedAt,
     LocalDateTime completedAt,
-    AsyncTaskMonitorResponse asyncMonitor
+    AsyncTaskMonitorResponse asyncMonitor,
+    String parameters
 ) {}

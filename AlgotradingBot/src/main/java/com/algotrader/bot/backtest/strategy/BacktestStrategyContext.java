@@ -12,8 +12,18 @@ public record BacktestStrategyContext(
     Map<String, List<OHLCVData>> candlesBySymbol,
     Map<String, Integer> currentIndexBySymbol,
     String primarySymbol,
-    BacktestOpenPosition openPosition
+    BacktestOpenPosition openPosition,
+    Map<String, String> parameters
 ) {
+    public BacktestStrategyContext(
+        Map<String, List<OHLCVData>> candlesBySymbol,
+        Map<String, Integer> currentIndexBySymbol,
+        String primarySymbol,
+        BacktestOpenPosition openPosition
+    ) {
+        this(candlesBySymbol, currentIndexBySymbol, primarySymbol, openPosition, Map.of());
+    }
+
 
     public List<OHLCVData> candles() {
         return candles(primarySymbol);

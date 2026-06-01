@@ -172,6 +172,7 @@ public class BacktestExecutionService {
 
             AtomicInteger lastLoggedMilestone = new AtomicInteger(-1);
             long simulationStartedAt = System.nanoTime();
+            java.util.Map<String, String> parameterMap = parseParameters(context.parameters());
             BacktestSimulationResult simulationResult = backtestSimulationEngine.simulate(
                 algorithmType,
                 new BacktestSimulationRequest(
@@ -180,10 +181,12 @@ public class BacktestExecutionService {
                     context.timeframe(),
                     context.initialBalance(),
                     context.feesBps(),
-                    context.slippageBps()
+                    context.slippageBps(),
+                    parameterMap
                 ),
                 progress -> onSimulationProgress(backtestId, progress, lastLoggedMilestone)
             );
+
             backendOperationMetrics.record(
                 "async",
                 "backtest_execution",
@@ -310,4 +313,19 @@ public class BacktestExecutionService {
             .filter(symbol -> !symbol.isBlank())
             .toList();
     }
+
+    private java.util.Map<String, String> parseParameters(String parametersStr) {
+        if (parametersStr == null || parametersStr.isBlank()) {
+            return java.util.Map.of();
+        }
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        for (String pair : parametersStr.split(",")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length == 2) {
+                map.put(parts[0].trim(), parts[1].trim());
+            }
+        }
+        return map;
+    }
 }
+

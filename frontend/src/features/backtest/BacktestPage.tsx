@@ -16,6 +16,7 @@ import {
   useReplayBacktestMutation,
   useRestoreBacktestDatasetMutation,
   useRunBacktestMutation,
+  useRunBacktestSweepMutation,
   useUploadBacktestDatasetMutation,
   type BacktestDataset,
   type BacktestExecutionStatus,
@@ -179,6 +180,7 @@ export default function BacktestPage() {
   const [archiveDataset, { isLoading: isArchivingDataset }] = useArchiveBacktestDatasetMutation();
   const [restoreDataset, { isLoading: isRestoringDataset }] = useRestoreBacktestDatasetMutation();
   const [runBacktest, { isLoading: isRunning }] = useRunBacktestMutation();
+  const [runBacktestSweep, { isLoading: isRunningSweep }] = useRunBacktestSweepMutation();
   const [replayBacktest, { isLoading: isReplaying }] = useReplayBacktestMutation();
   const [deleteBacktest, { isLoading: isDeletingBacktest }] = useDeleteBacktestMutation();
   const [loadComparison, { data: comparison, isFetching: isComparing, error: comparisonError }] =
@@ -395,6 +397,23 @@ export default function BacktestPage() {
         setConfigModalOpen(false);
         setRouteTab('review');
       }
+    } catch (error) {
+      setFeedback({ severity: 'error', message: getErrorMessage(error) });
+    }
+  };
+
+  const onRunBacktestSweep = async (payload: RunBacktestPayload) => {
+    try {
+      const response = await runBacktestSweep(payload).unwrap();
+      if (response.backtestIds && response.backtestIds.length > 0) {
+        setSelectedId(response.backtestIds[0]);
+      }
+      setFeedback({
+        severity: 'success',
+        message: `Bounded parameter sweep successfully triggered: ${response.runCount} sequential combinations scheduled.`,
+      });
+      setConfigModalOpen(false);
+      setRouteTab('history');
     } catch (error) {
       setFeedback({ severity: 'error', message: getErrorMessage(error) });
     }
@@ -773,10 +792,11 @@ export default function BacktestPage() {
         form={resolvedForm}
         algorithms={algorithms}
         datasets={activeDatasets}
-        busy={isRunning}
+        busy={isRunning || isRunningSweep}
         onClose={() => setConfigModalOpen(false)}
         onChange={(next) => setForm(next)}
         onRun={onRunBacktest}
+        onRunSweep={onRunBacktestSweep}
       />
     </AppLayout>
   );

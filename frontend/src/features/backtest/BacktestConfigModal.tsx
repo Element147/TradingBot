@@ -3,18 +3,21 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo } from 'react';
+import { alpha } from '@mui/material/styles';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { BacktestAlgorithm, BacktestDataset, RunBacktestPayload } from './backtestApi';
 import {
@@ -35,6 +38,7 @@ interface BacktestConfigModalProps {
   onChange: (next: BacktestConfigFormState) => void;
   onClose: () => void;
   onRun: (payloads: RunBacktestPayload[]) => Promise<void> | void;
+  onRunSweep?: (payload: RunBacktestPayload) => Promise<void> | void;
 }
 
 const parseSymbols = (symbolsCsv: string): string[] =>
@@ -55,11 +59,37 @@ export function BacktestConfigModal({
   onChange,
   onClose,
   onRun,
+  onRunSweep,
 }: BacktestConfigModalProps) {
+  const [isSweepChecked, setIsSweepChecked] = useState(false);
+
   const selectedAlgorithm = useMemo(
     () => form.algorithmType === 'ALL_ALGORITHMS' ? ({ id: 'ALL_ALGORITHMS', label: 'All Strategies', description: 'Run backtests for all available strategies', selectionMode: 'MIXED' } as unknown as BacktestAlgorithm) : (algorithms.find((algorithm) => algorithm.id === form.algorithmType) ?? null),
     [algorithms, form.algorithmType]
   );
+
+  const hasParameterGrid = useMemo(() => {
+    return Boolean(
+      selectedAlgorithm &&
+      selectedAlgorithm.parameterGrid &&
+      Object.keys(selectedAlgorithm.parameterGrid).length > 0
+    );
+  }, [selectedAlgorithm]);
+
+  const isSweepActive = hasParameterGrid && isSweepChecked;
+
+  const sweepCombinations = useMemo(() => {
+    if (!selectedAlgorithm?.parameterGrid) return 0;
+    const arrays = Object.values(selectedAlgorithm.parameterGrid);
+    if (arrays.length === 0) return 0;
+    return arrays.reduce((acc, arr) => acc * (arr?.length || 1), 1);
+  }, [selectedAlgorithm]);
+
+  useEffect(() => {
+    if (!hasParameterGrid) {
+      setIsSweepChecked(false);
+    }
+  }, [hasParameterGrid]);
   
   const algorithmOptions = useMemo(() => [
     { id: 'ALL_ALGORITHMS', label: 'All Strategies', description: 'Run backtests for all available strategies', selectionMode: 'MIXED' } as unknown as BacktestAlgorithm,
@@ -123,7 +153,7 @@ export function BacktestConfigModal({
   }, [availableSymbols, form, onChange, requiresDatasetUniverse]);
 
   const validation = useMemo(() => {
-    const errors: Partial<Record<keyof BacktestConfigFormState | 'dateRange', string>> = {};
+    const errors: Partial<Record<keyof BacktestConfigFormState | 'dateRange' | 'sweep', string>> = {};
 
     if (!form.algorithmType.trim()) {
       errors.algorithmType = 'Choose a strategy before starting a run.';
@@ -168,6 +198,21 @@ export function BacktestConfigModal({
       errors.dateRange = 'Start date must be earlier than end date.';
     }
 
+    if (isSweepActive) {
+      if (form.datasetId === 'ALL_DATASETS') {
+        errors.datasetId = 'Bounded parameter sweep requires selecting a specific single dataset.';
+      }
+      if (form.symbol === 'ALL_SYMBOLS') {
+        errors.symbol = 'Bounded parameter sweep requires selecting a specific single symbol.';
+      }
+      if (form.timeframe === 'ALL_TIMEFRAMES') {
+        errors.timeframe = 'Bounded parameter sweep requires selecting a specific single timeframe.';
+      }
+      if (sweepCombinations > 100) {
+        errors.sweep = `Cartesian sweep combinations (${sweepCombinations}) exceed the safety cap of 100. Please reduce parameter grid bounds on the backend.`;
+      }
+    }
+
     return {
       errors,
       summary:
@@ -179,11 +224,15 @@ export function BacktestConfigModal({
         errors.feesBps ??
         errors.slippageBps ??
         errors.dateRange ??
+        errors.sweep ??
         null,
     };
-  }, [availableSymbols, form, requiresDatasetUniverse, selectedDataset, timeframeOptions, isAllDatasets]);
+  }, [availableSymbols, form, requiresDatasetUniverse, selectedDataset, timeframeOptions, isAllDatasets, isSweepActive, sweepCombinations]);
 
   const combinationsCount = useMemo(() => {
+    if (isSweepActive) {
+      return sweepCombinations;
+    }
     try {
       return buildRunBacktestPayloads(
         form,
@@ -194,20 +243,36 @@ export function BacktestConfigModal({
     } catch {
       return 0;
     }
-  }, [form, algorithms, datasets]);
+  }, [form, algorithms, datasets, isSweepActive, sweepCombinations]);
 
   const run = async () => {
     if (validation.summary) {
       return;
     }
 
-    const payloads = buildRunBacktestPayloads(
-      form,
-      algorithms,
-      datasets,
-      ALL_TIMEFRAMES_LIST
-    );
-    await onRun(payloads);
+    if (isSweepActive && onRunSweep) {
+      const payload: RunBacktestPayload = {
+        algorithmType: form.algorithmType,
+        datasetId: Number(form.datasetId),
+        symbol: requiresDatasetUniverse ? undefined : (form.symbol || undefined),
+        timeframe: form.timeframe,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        initialBalance: Number(form.initialBalance),
+        feesBps: Number(form.feesBps),
+        slippageBps: Number(form.slippageBps),
+        experimentName: form.experimentName.trim() || undefined,
+      };
+      await onRunSweep(payload);
+    } else {
+      const payloads = buildRunBacktestPayloads(
+        form,
+        algorithms,
+        datasets,
+        ALL_TIMEFRAMES_LIST
+      );
+      await onRun(payloads);
+    }
   };
 
   const applyRecommendedSetup = () => {
@@ -327,6 +392,109 @@ export function BacktestConfigModal({
             <Alert severity={selectedAlgorithmProfile?.auditTone ?? 'info'}>
               {dispositionHeadline}
             </Alert>
+          ) : null}
+
+          {hasParameterGrid ? (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isSweepChecked}
+                    onChange={(e) => setIsSweepChecked(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body1" fontWeight={700}>
+                    Trigger Bounded Parameter Sweep
+                  </Typography>
+                }
+              />
+              {isSweepChecked ? (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.02),
+                    borderColor: (theme) => alpha(theme.palette.primary.main, 0.16),
+                    borderWidth: 1.5,
+                  }}
+                >
+                  <Stack spacing={2.5}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="subtitle2" color="primary.main" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Active Sweep Parameters
+                      </Typography>
+                      {sweepCombinations > 100 ? (
+                        <Chip
+                          label={`Limit Exceeded: ${sweepCombinations}/100`}
+                          color="error"
+                          variant="outlined"
+                          size="small"
+                        />
+                      ) : (
+                        <Chip
+                          label={`Sequential Queue: ${sweepCombinations} runs`}
+                          color="success"
+                          variant="outlined"
+                          size="small"
+                        />
+                      )}
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      This strategy defines a Cartesian grid managed securely on the backend. Ad-hoc client-side parameter fishing is blocked to prevent overfit strategies.
+                    </Typography>
+                    
+                    <Divider />
+
+                    <Stack spacing={2}>
+                      {Object.entries(selectedAlgorithm?.parameterGrid || {}).map(([key, values]) => (
+                        <Stack key={key} direction="row" spacing={3} alignItems="flex-start">
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontFamily: 'monospace',
+                              fontWeight: 700,
+                              minWidth: 120,
+                              pt: 0.5,
+                              color: 'text.primary',
+                            }}
+                          >
+                            {key}
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {values.map((val) => (
+                              <Chip
+                                key={val}
+                                label={val}
+                                size="small"
+                                sx={{
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.75rem',
+                                  backgroundColor: (theme) => alpha(theme.palette.text.primary, 0.05),
+                                  borderRadius: 1,
+                                }}
+                              />
+                            ))}
+                          </Stack>
+                        </Stack>
+                      ))}
+                    </Stack>
+
+                    {sweepCombinations > 100 ? (
+                      <Alert severity="error" sx={{ mt: 1 }}>
+                        Safety cap exceeded. This parameter sweep is locked. Please request a narrower strategy parameter grid from backend governance.
+                      </Alert>
+                    ) : (
+                      <Alert severity="info" sx={{ mt: 1 }}>
+                        Runs will execute sequentially under the single-threaded task manager to preserve system stability.
+                      </Alert>
+                    )}
+                  </Stack>
+                </Paper>
+              ) : null}
+            </Stack>
           ) : null}
 
           <FieldTooltip title="Experiment labels group related runs together so multi-run research stays reviewable and repeatable.">
@@ -569,7 +737,11 @@ export function BacktestConfigModal({
           disabled={busy || Boolean(validation.summary) || combinationsCount === 0}
           onClick={() => void run()}
         >
-          {combinationsCount > 1 ? `Run ${combinationsCount} Backtests` : 'Run Backtest'}
+          {isSweepActive
+            ? `Run Parameter Sweep (${combinationsCount} runs)`
+            : combinationsCount > 1
+              ? `Run ${combinationsCount} Backtests`
+              : 'Run Backtest'}
         </Button>
       </DialogActions>
     </Dialog>

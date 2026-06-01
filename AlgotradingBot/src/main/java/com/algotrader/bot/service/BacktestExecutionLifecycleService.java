@@ -57,10 +57,12 @@ public class BacktestExecutionLifecycleService {
                 result.getEndDate(),
                 result.getInitialBalance(),
                 result.getFeesBps(),
-                result.getSlippageBps()
+                result.getSlippageBps(),
+                result.getParameters()
             );
         });
     }
+
 
     public void updateProgress(Long backtestId,
                                BacktestResult.ExecutionStage executionStage,
@@ -177,7 +179,23 @@ public class BacktestExecutionLifecycleService {
         LocalDateTime endDate,
         BigDecimal initialBalance,
         Integer feesBps,
-        Integer slippageBps
+        Integer slippageBps,
+        String parameters
     ) {
+        public BacktestExecutionContext(
+            Long backtestId,
+            String strategyId,
+            Long datasetId,
+            String symbol,
+            String timeframe,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            BigDecimal initialBalance,
+            Integer feesBps,
+            Integer slippageBps
+        ) {
+            this(backtestId, strategyId, datasetId, symbol, timeframe, startDate, endDate, initialBalance, feesBps, slippageBps, "");
+        }
     }
+
 }

@@ -97,8 +97,10 @@ const getHeaderValue = (headers: FetchArgs['headers'], headerName: string): stri
     return matchedHeader ? matchedHeader[1] : null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return (headers as any)[headerName] ?? (headers as any)[headerName.toLowerCase()] ?? null;
 };
+
 
 export type EnvironmentOverride = 'test' | 'live';
 export type ExecutionContextOverride = ExecutionContext;

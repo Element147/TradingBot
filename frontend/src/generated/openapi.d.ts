@@ -342,6 +342,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/backtests/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sweep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/backtests/run": {
         parameters: {
             query?: never;
@@ -1412,6 +1428,23 @@ export interface components {
              * @example Q1 Momentum Review
              */
             experimentName?: string;
+            /**
+             * @description Optional parameters mapping for the strategy
+             * @example {
+             *       "fastPeriod": "10",
+             *       "slowPeriod": "30"
+             *     }
+             */
+            parameters?: {
+                [key: string]: string;
+            };
+        };
+        BacktestSweepRunResponse: {
+            experimentKey?: string;
+            experimentName?: string;
+            /** Format: int32 */
+            runCount?: number;
+            backtestIds?: number[];
         };
         BacktestDatasetResponse: {
             /** Format: int64 */
@@ -1794,6 +1827,7 @@ export interface components {
             /** Format: date-time */
             completedAt?: string;
             asyncMonitor?: components["schemas"]["AsyncTaskMonitorResponse"];
+            parameters?: string;
         };
         BacktestHistoryPageResponse: {
             items?: components["schemas"]["BacktestHistoryItemResponse"][];
@@ -1860,6 +1894,7 @@ export interface components {
             strategyMetrics?: components["schemas"]["BacktestStrategyMetricResponse"][];
             availableTelemetrySymbols?: string[];
             asyncMonitor?: components["schemas"]["AsyncTaskMonitorResponse"];
+            parameters?: string;
         };
         BacktestStrategyMetricResponse: {
             key?: string;
@@ -2001,6 +2036,7 @@ export interface components {
             errorMessage?: string;
             strategyMetrics?: components["schemas"]["BacktestStrategyMetricResponse"][];
             asyncMonitor?: components["schemas"]["AsyncTaskMonitorResponse"];
+            parameters?: string;
         };
         BacktestEquityPointResponse: {
             /** Format: date-time */
@@ -2087,6 +2123,9 @@ export interface components {
             label?: string;
             description?: string;
             selectionMode?: string;
+            parameterGrid?: {
+                [key: string]: string[];
+            };
         };
         /** @description Backtest result with comprehensive performance metrics */
         BacktestResultResponse: {
@@ -2825,6 +2864,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["BacktestRunResponse"];
+                };
+            };
+        };
+    };
+    sweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunBacktestRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BacktestSweepRunResponse"];
                 };
             };
         };

@@ -175,6 +175,15 @@ public class BacktestManagementController {
             .body(response);
     }
 
+    @PostMapping("/sweep")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<BacktestSweepRunResponse> sweep(@Valid @RequestBody RunBacktestRequest request) {
+        BacktestSweepRunResponse response = backtestManagementService.runBacktestSweep(request);
+        return ResponseEntity.accepted()
+            .body(response);
+    }
+
+
     @PostMapping("/{backtestId}/replay")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<BacktestRunResponse> replay(@PathVariable Long backtestId) {

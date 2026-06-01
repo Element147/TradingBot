@@ -1,4 +1,6 @@
-import { Alert, Grid, Stack, Typography } from '@mui/material';
+import { Alert, Box, Grid, Stack, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { useMemo } from 'react';
 
 import type { BacktestDetails } from './backtestApi';
 
@@ -26,6 +28,16 @@ export default function BacktestOverviewPanel({
   transportError,
 }: BacktestOverviewPanelProps) {
   const profile = getStrategyProfile(details.strategyId);
+  const parsedParams = useMemo(() => {
+    if (!details.parameters) return [];
+    return details.parameters
+      .split(',')
+      .map((pair) => {
+        const [key, value] = pair.split('=');
+        return { key: key?.trim() || '', value: value?.trim() || '' };
+      })
+      .filter((p) => p.key);
+  }, [details.parameters]);
   const hasCompleteProvenance = Boolean(
     details.datasetId &&
       details.datasetChecksumSha256 &&
@@ -145,6 +157,42 @@ export default function BacktestOverviewPanel({
           )}
         </SurfacePanel>
       </Grid>
+
+      {parsedParams.length > 0 ? (
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <SurfacePanel
+            title="Active strategy parameters"
+            description="Predefined parameter setup utilized in this backtest simulation."
+          >
+            <Stack spacing={4}>
+              <Typography variant="body2" color="text.secondary">
+                This run was executed using a specialized Cartesian combination. Parameter configurations are managed securely by the strategy governor.
+              </Typography>
+              <Grid container spacing={2.5}>
+                {parsedParams.map((param) => (
+                  <Grid key={param.key} size={{ xs: 6 }} sx={{ width: '50%' }}>
+                    <Box
+                      sx={{
+                        p: 3,
+                        borderRadius: 2,
+                        backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.02),
+                        border: (theme) => `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                        {param.key}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, mt: 1, color: 'primary.main' }}>
+                        {param.value}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Stack>
+          </SurfacePanel>
+        </Grid>
+      ) : null}
 
       {profile ? (
         <Grid size={{ xs: 12 }}>

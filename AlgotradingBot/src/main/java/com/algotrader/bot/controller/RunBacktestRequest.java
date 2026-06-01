@@ -57,10 +57,30 @@ public record RunBacktestRequest(
     Integer slippageBps,
     @Schema(description = "Optional experiment label used to group related runs", example = "Q1 Momentum Review")
     @Size(max = 120, message = "Experiment name must be <= 120 characters")
-    String experimentName
+    String experimentName,
+    @Schema(description = "Optional parameters mapping for the strategy", example = "{\"fastPeriod\":\"10\",\"slowPeriod\":\"30\"}")
+    java.util.Map<String, String> parameters
 ) {
     public RunBacktestRequest {
         feesBps = feesBps == null ? 10 : feesBps;
         slippageBps = slippageBps == null ? 3 : slippageBps;
+        parameters = parameters == null ? java.util.Map.of() : parameters;
     }
+
+    public RunBacktestRequest(
+        String algorithmType,
+        Long datasetId,
+        String symbol,
+        String timeframe,
+        java.time.LocalDate startDate,
+        java.time.LocalDate endDate,
+        BigDecimal initialBalance,
+        Integer feesBps,
+        Integer slippageBps,
+        String experimentName
+    ) {
+        this(algorithmType, datasetId, symbol, timeframe, startDate, endDate, initialBalance, feesBps, slippageBps, experimentName, java.util.Map.of());
+    }
+
 }
+

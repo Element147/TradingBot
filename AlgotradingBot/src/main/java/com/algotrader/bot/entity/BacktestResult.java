@@ -123,6 +123,10 @@ public class BacktestResult {
     @Column
     private String errorMessage;
 
+    @Size(max = 1000)
+    @Column(length = 1000)
+    private String parameters;
+
     @NotNull
     @Column(nullable = false)
     private Integer progressPercent;
@@ -453,6 +457,14 @@ public class BacktestResult {
         this.errorMessage = errorMessage;
     }
 
+    public String getParameters() {
+        return parameters;
+    }
+
+    public void setParameters(String parameters) {
+        this.parameters = parameters;
+    }
+
     public Integer getProgressPercent() {
         return progressPercent;
     }
@@ -589,7 +601,9 @@ public class BacktestResult {
                 ", executionStatus=" + executionStatus +
                 ", executionStage=" + executionStage +
                 ", progressPercent=" + progressPercent +
+                ", parameters='" + parameters + '\'' +
                 ", timestamp=" + timestamp +
                 '}';
     }
+
 }

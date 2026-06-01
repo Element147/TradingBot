@@ -146,7 +146,8 @@ class BacktestSimulationEngineTest {
                 request(createRisingCandles("BTC/USDT", 20, new BigDecimal("100")), "BTC/USDT")
             ));
 
-        assertEquals("Not enough candles for selected strategy. Need at least 31 rows.", exception.getMessage());
+        assertEquals("Not enough candles for selected strategy. Need at least 51 rows.", exception.getMessage());
+
     }
 
     @Test

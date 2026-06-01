@@ -57,6 +57,7 @@ export interface BacktestAlgorithm {
   label: string;
   description: string;
   selectionMode: BacktestSelectionMode;
+  parameterGrid?: Record<string, string[]>;
 }
 
 export interface BacktestDataset {
@@ -115,6 +116,7 @@ export interface BacktestHistoryItem {
   startedAt: string | null;
   completedAt: string | null;
   asyncMonitor?: AsyncTaskMonitor;
+  parameters?: string | null;
 }
 
 export interface BacktestHistoryQuery {
@@ -327,4 +329,11 @@ export interface BacktestRunSubmission {
   status: BacktestExecutionStatus;
   submittedAt: string;
   asyncMonitor?: AsyncTaskMonitor;
+}
+
+export interface BacktestSweepRunResponse {
+  experimentKey: string;
+  experimentName: string;
+  runCount: number;
+  backtestIds: number[];
 }

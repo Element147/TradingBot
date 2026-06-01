@@ -12,6 +12,7 @@ import {
   normalizeBacktestHistory,
   normalizeBacktestRunSubmission,
   normalizeBacktestSummary,
+  normalizeBacktestSweepRunResponse,
   normalizeBacktestTelemetryResponse,
   normalizeBacktestTradeSeries,
   toRunBacktestRequest,
@@ -28,6 +29,7 @@ import type {
   BacktestHistoryResult,
   BacktestRunSubmission,
   BacktestSummary,
+  BacktestSweepRunResponse,
   BacktestTelemetryQueryResponse,
   BacktestTradeSeriesItem,
   RunBacktestPayload,
@@ -53,6 +55,7 @@ export type {
   BacktestHistorySortField,
   BacktestRunSubmission,
   BacktestSummary,
+  BacktestSweepRunResponse,
   BacktestSelectionMode,
   BacktestIndicatorPane,
   BacktestIndicatorSeries,
@@ -180,6 +183,15 @@ export const backtestApi = createApi({
       transformResponse: normalizeBacktestRunSubmission,
       invalidatesTags: ['Backtests'],
     }),
+    runBacktestSweep: builder.mutation<BacktestSweepRunResponse, RunBacktestPayload>({
+      query: (body) => ({
+        url: '/api/backtests/sweep',
+        method: 'POST',
+        body: toRunBacktestRequest(body),
+      }),
+      transformResponse: normalizeBacktestSweepRunResponse,
+      invalidatesTags: ['Backtests'],
+    }),
     replayBacktest: builder.mutation<BacktestRunSubmission, number>({
       query: (backtestId) => ({
         url: `/api/backtests/${backtestId}/replay`,
@@ -220,6 +232,7 @@ export const {
   useArchiveBacktestDatasetMutation,
   useRestoreBacktestDatasetMutation,
   useRunBacktestMutation,
+  useRunBacktestSweepMutation,
   useReplayBacktestMutation,
   useDeleteBacktestMutation,
   useCompareBacktestsQuery,

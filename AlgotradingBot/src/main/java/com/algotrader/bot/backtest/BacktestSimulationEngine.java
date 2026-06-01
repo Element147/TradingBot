@@ -95,8 +95,10 @@ public class BacktestSimulationEngine {
                         allocationFraction,
                         entryTimelineIndex,
                         timelineIndex
-                    )
+                    ),
+                    request.parameters()
                 );
+
 
                 if (activeSymbol == null && pendingDecision.action() == BacktestStrategyAction.BUY) {
                     EntrySnapshot entry = enterPosition(
@@ -254,7 +256,8 @@ public class BacktestSimulationEngine {
                 scopedCandles,
                 currentIndexBySymbol,
                 primarySymbol,
-                openPosition
+                openPosition,
+                request.parameters()
             );
             BacktestStrategyDecision decision = strategy.evaluate(context);
 
@@ -283,7 +286,7 @@ public class BacktestSimulationEngine {
 
         if (activeSymbol != null) {
             Map<String, Integer> finalIndexMap = buildCurrentIndexMap(indexByTimestamp, timeline.get(timeline.size() - 1));
-            BacktestStrategyContext finalContext = new BacktestStrategyContext(scopedCandles, finalIndexMap, primarySymbol, null);
+            BacktestStrategyContext finalContext = new BacktestStrategyContext(scopedCandles, finalIndexMap, primarySymbol, null, request.parameters());
             ExitSnapshot exit = exitPosition(
                 activeSide,
                 quantity,

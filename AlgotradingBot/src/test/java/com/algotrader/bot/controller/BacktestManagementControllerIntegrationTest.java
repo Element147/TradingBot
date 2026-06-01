@@ -741,4 +741,54 @@ class BacktestManagementControllerIntegrationTest {
         }
         return backtestResultRepository.findById(id).orElseThrow();
     }
+
+    @Test
+    void runBacktestSweep_createsMultiplePendingRecords() throws Exception {
+        RunBacktestRequest request = new RunBacktestRequest(
+            "SMA_CROSSOVER",
+            datasetId,
+            "BTC/USDT",
+            "1h",
+            java.time.LocalDate.parse("2025-01-01"),
+            java.time.LocalDate.parse("2025-01-02"),
+            new BigDecimal("2000"),
+            10,
+            3,
+            "SMA Grid Sweep"
+        );
+
+        mockMvc.perform(post("/api/backtests/sweep")
+                .header("Authorization", "Bearer " + authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.experimentKey").exists())
+            .andExpect(jsonPath("$.runCount").value(16))
+            .andExpect(jsonPath("$.backtestIds").isArray())
+            .andExpect(jsonPath("$.backtestIds", hasSize(16)));
+    }
+
+    @Test
+    void runBacktestSweep_rejectsNonSweepingStrategy() throws Exception {
+        RunBacktestRequest request = new RunBacktestRequest(
+            "BUY_AND_HOLD",
+            datasetId,
+            "BTC/USDT",
+            "1h",
+            java.time.LocalDate.parse("2025-01-01"),
+            java.time.LocalDate.parse("2025-01-02"),
+            new BigDecimal("2000"),
+            10,
+            3,
+            "BH Sweep"
+        );
+
+        mockMvc.perform(post("/api/backtests/sweep")
+                .header("Authorization", "Bearer " + authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isUnprocessableContent())
+            .andExpect(jsonPath("$.message").value(containsString("does not support parameter sweeps")));
+    }
 }
+

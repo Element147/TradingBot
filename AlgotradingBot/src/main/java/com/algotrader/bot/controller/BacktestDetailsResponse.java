@@ -43,5 +43,6 @@ public record BacktestDetailsResponse(
     String errorMessage,
     List<BacktestStrategyMetricResponse> strategyMetrics,
     List<String> availableTelemetrySymbols,
-    AsyncTaskMonitorResponse asyncMonitor
+    AsyncTaskMonitorResponse asyncMonitor,
+    String parameters
 ) {}

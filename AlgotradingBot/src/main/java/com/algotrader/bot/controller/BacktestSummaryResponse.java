@@ -42,5 +42,6 @@ public record BacktestSummaryResponse(
     LocalDateTime completedAt,
     String errorMessage,
     List<BacktestStrategyMetricResponse> strategyMetrics,
-    AsyncTaskMonitorResponse asyncMonitor
+    AsyncTaskMonitorResponse asyncMonitor,
+    String parameters
 ) {}

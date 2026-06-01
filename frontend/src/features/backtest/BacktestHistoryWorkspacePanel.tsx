@@ -301,6 +301,45 @@ export function BacktestHistoryWorkspacePanel({
         ),
       },
       {
+        accessorKey: 'parameters',
+        header: 'Parameters',
+        size: 180,
+        minSize: 140,
+        meta: {
+          filterVariant: 'text',
+          filterPlaceholder: 'Params',
+          headerDescription: 'Active strategy parameter values used in the simulation.',
+        },
+        cell: ({ row }) => {
+          const params = row.original.parameters;
+          if (!params) {
+            return (
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                Default
+              </Typography>
+            );
+          }
+          return (
+            <Tooltip title={params} arrow placement="top">
+              <Typography
+                variant="body2"
+                sx={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: 160,
+                  color: 'primary.main',
+                }}
+              >
+                {params}
+              </Typography>
+            </Tooltip>
+          );
+        },
+      },
+      {
         accessorKey: 'feesBps',
         header: 'Fees',
         size: 110,

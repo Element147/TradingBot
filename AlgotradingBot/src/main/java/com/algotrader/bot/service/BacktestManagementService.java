@@ -4,6 +4,8 @@ import com.algotrader.bot.backtest.strategy.BacktestStrategyRegistry;
 import com.algotrader.bot.controller.BacktestAlgorithmResponse;
 import com.algotrader.bot.controller.BacktestRunResponse;
 import com.algotrader.bot.controller.RunBacktestRequest;
+import com.algotrader.bot.controller.BacktestSweepRunResponse;
+
 import com.algotrader.bot.controller.AsyncTaskMonitorResponse;
 import com.algotrader.bot.entity.BacktestDataset;
 import com.algotrader.bot.entity.BacktestResult;
@@ -58,9 +60,11 @@ public class BacktestManagementService {
                 definition.type().name(),
                 definition.label(),
                 definition.description(),
-                definition.selectionMode().name()))
+                definition.selectionMode().name(),
+                definition.parameterGrid()))
             .toList();
     }
+
 
     @Transactional
     public BacktestRunResponse runBacktest(RunBacktestRequest request) {
@@ -109,7 +113,9 @@ public class BacktestManagementService {
         pending.setDatasetName(dataset.getName());
         pending.setExperimentName(experimentName);
         pending.setExperimentKey(normalizeExperimentKey(experimentName));
+        pending.setParameters(serializeParameters(request.parameters()));
         pending.setTimeframe(request.timeframe());
+
         pending.setExecutionStatus(BacktestResult.ExecutionStatus.PENDING);
         pending.setExecutionStage(BacktestResult.ExecutionStage.QUEUED);
         pending.setProgressPercent(0);
@@ -154,6 +160,105 @@ public class BacktestManagementService {
     }
 
     @Transactional
+    public BacktestSweepRunResponse runBacktestSweep(RunBacktestRequest request) {
+        if (!request.startDate().isBefore(request.endDate())) {
+            throw new IllegalArgumentException("Start date must be before end date");
+        }
+        if (request.initialBalance().compareTo(new BigDecimal("100.00")) <= 0) {
+            throw new IllegalArgumentException("Initial balance must be greater than 100");
+        }
+
+        backtestDatasetLifecycleService.validateDatasetAvailableForNewRuns(request.datasetId());
+        BacktestAlgorithmType algorithmType = BacktestAlgorithmType.from(request.algorithmType());
+        var strategyDefinition = backtestStrategyRegistry.getStrategy(algorithmType).definition();
+
+        if (strategyDefinition.parameterGrid() == null || strategyDefinition.parameterGrid().isEmpty()) {
+            throw new IllegalArgumentException("Strategy " + algorithmType.name() + " does not support parameter sweeps.");
+        }
+
+        List<java.util.Map<String, String>> combinations = generateCombinations(strategyDefinition.parameterGrid());
+        if (combinations.size() > 100) {
+            throw new IllegalArgumentException("Sweep parameter combinations (" + combinations.size() + ") exceed the safety limit of 100.");
+        }
+
+        BacktestDataset dataset = backtestDatasetStorageService.getDataset(request.datasetId());
+        String effectiveSymbol = resolveRequestedSymbol(
+            request.symbol(),
+            dataset.getSymbolsCsv(),
+            strategyDefinition.selectionMode()
+        );
+
+        String baseExperimentName = request.experimentName();
+        if (baseExperimentName == null || baseExperimentName.isBlank()) {
+            baseExperimentName = algorithmType.name() + " Sweep";
+        }
+        String sweepSuffix = "Sweep-" + java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now());
+        String experimentName = baseExperimentName + " | " + sweepSuffix;
+        String experimentKey = normalizeExperimentKey(experimentName);
+
+        List<Long> backtestIds = new java.util.ArrayList<>();
+
+        for (java.util.Map<String, String> combination : combinations) {
+            BacktestResult pending = new BacktestResult(
+                algorithmType.name(),
+                effectiveSymbol,
+                request.startDate().atStartOfDay(),
+                request.endDate().atStartOfDay(),
+                request.initialBalance(),
+                request.initialBalance(),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                0,
+                BacktestResult.ValidationStatus.PENDING
+            );
+
+            pending.setDatasetId(dataset.getId());
+            pending.setDatasetName(dataset.getName());
+            pending.setExperimentName(experimentName);
+            pending.setExperimentKey(experimentKey);
+            pending.setParameters(serializeParameters(combination));
+            pending.setTimeframe(request.timeframe());
+            pending.setExecutionStatus(BacktestResult.ExecutionStatus.PENDING);
+            pending.setExecutionStage(BacktestResult.ExecutionStage.QUEUED);
+            pending.setProgressPercent(0);
+            pending.setProcessedCandles(0);
+            pending.setTotalCandles(0);
+            pending.setCurrentDataTimestamp(null);
+            pending.setStatusMessage("Queued. Waiting for the backtest worker to start.");
+            pending.setLastProgressAt(LocalDateTime.now());
+            pending.setStartedAt(null);
+            pending.setCompletedAt(null);
+            pending.setFeesBps(request.feesBps());
+            pending.setSlippageBps(request.slippageBps());
+            pending.setTimestamp(LocalDateTime.now());
+
+            BacktestResult saved = backtestResultRepository.save(pending);
+            backtestProgressService.publish(saved);
+            backtestIds.add(saved.getId());
+
+            dispatchAfterCommit(saved.getId());
+        }
+
+        operatorAuditService.recordSuccess(
+            "BACKTEST_SWEEP_STARTED",
+            "test",
+            "BACKTEST",
+            experimentKey,
+            "strategy=" + algorithmType.name() + ", datasetId=" + dataset.getId() + ", runCount=" + combinations.size()
+        );
+
+        return new BacktestSweepRunResponse(
+            experimentKey,
+            experimentName,
+            combinations.size(),
+            backtestIds
+        );
+    }
+
+
+    @Transactional
     public BacktestRunResponse replayBacktest(Long backtestId) {
         BacktestResult existing = backtestResultRepository.findById(backtestId)
             .orElseThrow(() -> new EntityNotFoundException("Backtest not found: " + backtestId));
@@ -183,7 +288,9 @@ public class BacktestManagementService {
         pending.setDatasetName(dataset.getName());
         pending.setExperimentName(resolveExperimentName(existing));
         pending.setExperimentKey(resolveExperimentKey(existing));
+        pending.setParameters(existing.getParameters());
         pending.setTimeframe(existing.getTimeframe());
+
         pending.setExecutionStatus(BacktestResult.ExecutionStatus.PENDING);
         pending.setExecutionStage(BacktestResult.ExecutionStage.QUEUED);
         pending.setProgressPercent(0);
@@ -322,6 +429,47 @@ public class BacktestManagementService {
             .replaceAll("(^-|-$)", "");
     }
 
+    private String serializeParameters(java.util.Map<String, String> parameters) {
+        if (parameters == null || parameters.isEmpty()) {
+            return "";
+        }
+        return parameters.entrySet().stream()
+            .map(entry -> entry.getKey() + "=" + entry.getValue())
+            .collect(java.util.stream.Collectors.joining(","));
+    }
+
+    private List<java.util.Map<String, String>> generateCombinations(java.util.Map<String, List<String>> grid) {
+        List<java.util.Map<String, String>> combinations = new java.util.ArrayList<>();
+        if (grid == null || grid.isEmpty()) {
+            return combinations;
+        }
+        List<String> keys = new java.util.ArrayList<>(grid.keySet());
+        generateCombinationsRecursive(grid, keys, 0, new java.util.HashMap<>(), combinations);
+        return combinations;
+    }
+
+    private void generateCombinationsRecursive(java.util.Map<String, List<String>> grid,
+                                               List<String> keys,
+                                               int index,
+                                               java.util.Map<String, String> current,
+                                               List<java.util.Map<String, String>> combinations) {
+        if (index == keys.size()) {
+            combinations.add(new java.util.HashMap<>(current));
+            return;
+        }
+        String key = keys.get(index);
+        List<String> values = grid.get(key);
+        if (values == null || values.isEmpty()) {
+            generateCombinationsRecursive(grid, keys, index + 1, current, combinations);
+        } else {
+            for (String value : values) {
+                current.put(key, value);
+                generateCombinationsRecursive(grid, keys, index + 1, current, combinations);
+                current.remove(key);
+            }
+        }
+    }
+
     private void dispatchAfterCommit(Long backtestId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()
             && TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -337,3 +485,5 @@ public class BacktestManagementService {
         backtestExecutionService.executeAsync(backtestId);
     }
 }
+
+

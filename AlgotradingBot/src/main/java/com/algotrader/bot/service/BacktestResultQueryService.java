@@ -337,7 +337,8 @@ public class BacktestResultQueryService {
             result.getLastProgressAt(),
             result.getStartedAt(),
             result.getCompletedAt(),
-            buildAsyncMonitor(result)
+            buildAsyncMonitor(result),
+            result.getParameters()
         );
     }
 
@@ -382,7 +383,8 @@ public class BacktestResultQueryService {
             summary.errorMessage(),
             summary.strategyMetrics(),
             resolveTelemetrySymbols(result),
-            summary.asyncMonitor()
+            summary.asyncMonitor(),
+            summary.parameters()
         );
     }
 
@@ -426,7 +428,8 @@ public class BacktestResultQueryService {
             result.getCompletedAt(),
             result.getErrorMessage(),
             strategyMetrics(result),
-            buildAsyncMonitor(result)
+            buildAsyncMonitor(result),
+            result.getParameters()
         );
     }
 

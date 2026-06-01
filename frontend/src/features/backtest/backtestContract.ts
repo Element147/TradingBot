@@ -13,6 +13,7 @@ import type {
   BacktestTelemetryQueryResponse,
   BacktestTradeSeriesItem,
   BacktestRunSubmission,
+  BacktestSweepRunResponse,
   RunBacktestPayload,
 } from './backtestTypes';
 
@@ -51,6 +52,7 @@ type RawBacktestRunRequest = components['schemas']['RunBacktestRequest'];
 type RawBacktestRunSubmission = components['schemas']['BacktestRunResponse'] & {
   asyncMonitor?: RawAsyncTaskMonitor;
 };
+type RawBacktestSweepRunResponse = components['schemas']['BacktestSweepRunResponse'];
 type RawAsyncTaskMonitor = {
   state: 'QUEUED' | 'RUNNING' | 'WAITING_RETRY' | 'FAILED' | 'COMPLETED' | 'CANCELLED';
   attemptCount: number;
@@ -149,6 +151,7 @@ const backtestAlgorithmSchema = z.object({
   label: z.string().min(1),
   description: z.string().min(1),
   selectionMode: selectionModeSchema,
+  parameterGrid: z.record(z.string(), z.array(z.string())).optional(),
 });
 
 const backtestDatasetSchema = z.object({
@@ -207,6 +210,7 @@ const backtestHistoryItemSchema = z.object({
   startedAt: z.string().nullable(),
   completedAt: z.string().nullable(),
   asyncMonitor: asyncTaskMonitorSchema,
+  parameters: z.string().nullable().optional(),
 });
 
 const backtestHistoryPageSchema = z.object({
@@ -451,6 +455,17 @@ export const normalizeBacktestExperimentSummaries = (
 export const normalizeBacktestComparisonResponse = (
   response: RawBacktestComparisonResponse
 ): BacktestComparisonResponse => backtestComparisonResponseSchema.parse(response);
+
+const backtestSweepRunResponseSchema = z.object({
+  experimentKey: z.string().min(1),
+  experimentName: z.string().min(1),
+  runCount: z.number().int(),
+  backtestIds: z.array(z.number().int()),
+});
+
+export const normalizeBacktestSweepRunResponse = (
+  response: RawBacktestSweepRunResponse
+): BacktestSweepRunResponse => backtestSweepRunResponseSchema.parse(response);
 
 export const normalizeBacktestRunSubmission = (
   response: RawBacktestRunSubmission
